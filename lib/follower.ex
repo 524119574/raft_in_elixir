@@ -18,8 +18,10 @@ defmodule Follower do
         end
         if s[:voted_for] == nil or s[:voted_for] == candidateId do
           # Monitor.debug(s, "received request vote message and voted!")
+          s = State.voted_for(s, candidateId)
           send votePid, {:requestVoteResponse, s[:curr_term], true}
         end
+        # TODO: do we need to reset the timer here?
         next(s, resetTimer(timer))
       {:timeout} ->
         Candidate.start(s)
