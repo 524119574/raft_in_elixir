@@ -21,6 +21,8 @@ defmodule Follower do
           send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
           next(s, resetTimer(timer))
         end
+
+      # TODO: voting logic add up-do-date check in sec 5.4
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
         # Basically three cases:
         # 1. less than
@@ -52,6 +54,7 @@ defmodule Follower do
             end
           end
         end
+
       {:timeout} ->
         Candidate.start(s)
     end
