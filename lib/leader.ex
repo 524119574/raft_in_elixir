@@ -37,6 +37,7 @@ defmodule Leader do
                         Log.getPrevLogTerm(prevLog),
                         cmd,
                         s[:commit_index]}
+
       # TODO: step down when discovered server with highter term
       # {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} when term > s[:curr_term] ->
       #   # need to reset voted_for and vote counts or not?
@@ -47,7 +48,6 @@ defmodule Leader do
       #   s = State.curr_term(s, term)
       #   s = State.votes(0)
       #   Follower.start(s)
-
     end
     next(s)
   end
