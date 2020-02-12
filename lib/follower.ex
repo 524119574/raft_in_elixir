@@ -20,6 +20,7 @@ defmodule Follower do
           next(s, resetTimer(timer))
         end
 
+      # TODO: voting logic add up-do-date check in sec 5.4
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
         # Basically three cases:
         # 1. less than
@@ -51,6 +52,7 @@ defmodule Follower do
             end
           end
         end
+
       {:timeout} ->
         Candidate.start(s)
     end

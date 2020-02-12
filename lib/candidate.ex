@@ -31,6 +31,7 @@ defmodule Candidate do
         end
       {:appendEntry, term, leaderId, prevLogIndex} ->
         if term >= s[:curr_term] do
+          # TODO: need to reset s[:votes]?
           if term > s[:curr_term] do
             s = State.voted_for(s, nil)
             s = State.curr_term(s, term)
