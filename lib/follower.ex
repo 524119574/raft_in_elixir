@@ -8,7 +8,9 @@ defmodule Follower do
 
   defp next(s, timer) do
     receive do
-      {:appendEntry, term, leaderId, prevLogIndex} ->
+      {:appendEntry, term, leaderId,
+       prevLogIndex, prevLogTerm,
+       entries, leaderCommit} ->
         # Monitor.debug(s, "appendentry leader: #{leaderId} term: #{term}")
         if term >= s[:curr_term] do
           if term > s[:curr_term] do
@@ -19,7 +21,6 @@ defmodule Follower do
           send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
           next(s, resetTimer(timer))
         end
-
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
         # Basically three cases:
         # 1. less than

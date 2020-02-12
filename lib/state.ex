@@ -22,7 +22,7 @@ def initialise(config, server_id, servers, databaseP) do
     # -- update on stable storage before replying to requests
     curr_term:	  0,
     voted_for:	  nil,
-    # log:          Log.new(),  # implemented in log.ex
+    log:          Log.new(),  # implemented in log.ex
 
     # -- raft non-persistent data
     role:	  :FOLLOWER,
@@ -50,6 +50,8 @@ def next_index(s, i, v),  do: Map.put(s, :next_index,
 def match_index(s, v),    do: Map.put(s, :match_index, v)     # sets new  match_index map
 def match_index(s, i, v), do: Map.put(s, :match_index,
                                       Map.put(s.match_index, i, v))
+
+def log(s, v), do: Map.put(s, :log, v)
 
 # add additional setters
 
