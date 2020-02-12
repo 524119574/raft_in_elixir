@@ -55,8 +55,7 @@ defmodule Follower do
           end
         end
 
-      {:timeout} ->
-        Candidate.start(s)
+      {:timeout} -> Candidate.start(s)
     end
   end
 

@@ -2,6 +2,7 @@ defmodule Candidate do
   def start(s) do
     s = State.role(s, :CANDIDATE)
     s = State.curr_term(s, s[:curr_term] + 1)
+    s = State.voted_for(s, self())
     spawn(Vote, :start, [s])
     next(s)
   end
@@ -28,7 +29,9 @@ defmodule Candidate do
         else
           next(s)
         end
-      {:appendEntry, term, leaderId, prevLogIndex} ->
+      {:appendEntry, term, leaderId,
+       prevLogIndex, prevLogTerm,
+       entries, leaderCommit} ->
         if term >= s[:curr_term] do
           # TODO: need to reset s[:votes]?
           if term > s[:curr_term] do

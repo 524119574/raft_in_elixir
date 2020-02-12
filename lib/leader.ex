@@ -5,7 +5,7 @@ defmodule Leader do
     s = State.role(s, :LEADER)
     for server <- s[:servers], server != self(), do:
       send(server, {:appendEntry, s[:curr_term], s[:id], 0})
-    Process.send_after(self(), {:resendHeartBeat}, 100)
+    Process.send_after(self(), {:resendHeartBeat}, 50)
     # Send a client request to itself.
     cmd = {:move, 100, 1, 2}
     Process.send_after(self(),
@@ -24,7 +24,7 @@ defmodule Leader do
                         0,  # prevLogTerm
                         nil,
                         s[:commit_index]})
-        Process.send_after(self(), {:resendHeartBeat}, 100)
+        Process.send_after(self(), {:resendHeartBeat}, 50)
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
         Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]}")
         prevLog = s[:log]
