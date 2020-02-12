@@ -20,6 +20,9 @@ defmodule Follower do
           # Pay attention to the off by 1 here.
           send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
           next(s, resetTimer(timer))
+        else # reply false if term < currentTerm
+          send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false})
+          next(s, resetTimer(timer))
         end
 
       # TODO: voting logic add up-do-date check in sec 5.4
