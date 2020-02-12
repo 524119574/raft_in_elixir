@@ -10,8 +10,15 @@ defmodule Candidate do
   defp next(s) do
     receive do
       {:Elected, termId} ->
+        # We add the if check here because we want to avoid the situation
+        # where the candidate spin up the vote process and then becomes the
+        # follower because it receive appendEntry from another leader and then
+        # it times out and becomes the candidate again. And only at this time
+        # the candidate receive the message from vote module.
+
+        # Well it seems like this situation can never happen? Since each term
+        # there can only be one leader, no?
         if (termId == s[:curr_term]) do
-          IO.puts "I am the leader!"
           Leader.start(s)
         else
           next(s)
@@ -23,8 +30,15 @@ defmodule Candidate do
           next(s)
         end
       {:appendEntry, term, leaderId, prevLogIndex} ->
-        send Enum.at(s[:servers], leaderId), {:appendEntryResponse, s[:curr_term], true}
-        Follower.start(s)
+        if term >= s[:curr_term] do
+          if term > s[:curr_term] do
+            s = State.voted_for(s, nil)
+            s = State.curr_term(s, term)
+          end
+          # Pay attention to the off by 1 error here.
+          send Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true}
+          Follower.start(s)
+        end
     end
   end
 
