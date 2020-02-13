@@ -26,7 +26,8 @@ def next(db) do
 
     db = Database.seqnum(db, db.seqnum + 1)
 
-    Monitor.notify db, { :DB_UPDATE, db.server_id, db.seqnum, command }
+    # Note that we change the below line.
+    Monitor.notify db, { :DB_move, db.server_id, db.seqnum, command }
 
     Database.next(db)
   unexpected ->

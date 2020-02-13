@@ -6,12 +6,6 @@ defmodule Leader do
     for server <- s[:servers], server != self(), do:
       send(server, {:appendEntry, s[:curr_term], s[:id], 0})
     Process.send_after(self(), {:resendHeartBeat}, 50)
-    # Send a client request to itself.
-    cmd = {:move, 100, 1, 2}
-    Process.send_after(self(),
-                       {:CLIENT_REQUEST, %{clientP: self(), uid: 0, cmd: cmd}},
-                       50)
-
     next(s)
   end
 
@@ -25,12 +19,12 @@ defmodule Leader do
                         nil, # entries
                         s[:commit_index]})
         Process.send_after(self(), {:resendHeartBeat}, 50)
+        next(s)
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
         Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]}")
         prevLog = s[:log]
         # Add the client request to its own log.
         s = State.log(s, Enum.concat(prevLog, [%{term: s[:curr_term], uid: uid, cmd: cmd}]))
-        Monitor.debug(s, "log is #{prevLog}")
         appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
                           Log.getPrevLogIndex(prevLog),
                           Log.getPrevLogTerm(prevLog),
@@ -42,20 +36,23 @@ defmodule Leader do
         s = State.append_map(s, appendEntryMsg, 0)
         # Monitor.debug(s, "appendentry message is: #{appendEntryMsg}")
         Monitor.debug(s, "map is: #{s[:append_map][appendEntryMsg]}")
+        next(s)
       {:appendEntryResponse, term, res, originalMessage} ->
         # -----------
         Monitor.debug(s, "I have received append response")
         {:appendEntry, term, leaderId, prevLogIndex,
          prevLogTerm, entries, leaderCommit} = originalMessage
-        Monitor.debug(s, "original message is: #{originalMessage}")
         Monitor.debug(s, "map is: #{s[:append_map][originalMessage]}")
         s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
         if s[:append_map][originalMessage] >= s[:majority] and leaderCommit == s[:commit_index]  do
           for entry <- entries, do:
             send s[:databaseP], {:EXECUTE, entry}
-          State.commit_index(s, s[:commit_index] + length(entries))
+          s = State.commit_index(s, s[:commit_index] + length(entries))
+          Monitor.debug(s, "My commit index is #{s[:commit_index]}")
           Monitor.debug(s, "I have committed a new entry")
+          next(s)
         end
+        next(s)
 
       # TODO: step down when discovered server with highter term
       # {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} when term > s[:curr_term] ->
@@ -68,7 +65,6 @@ defmodule Leader do
       #   s = State.votes(0)
       #   Follower.start(s)
     end
-    next(s)
   end
 
 end

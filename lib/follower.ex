@@ -15,7 +15,6 @@ defmodule Follower do
           s = State.voted_for(s, nil)
           s = State.curr_term(s, term)
         end
-        Monitor.debug(s, "appendentry leader: #{leaderId} term: #{term} Log updated log length #{length(s[:log])}")
         cond do
           term < s[:curr_term] ->
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false})
@@ -24,7 +23,7 @@ defmodule Follower do
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false})
             next(s, resetTimer(timer))
           entries != nil ->
-            s = State.log(s, Enum.concat(s[:log], entries))
+            s = State.log(s, Enum.concat(s[:log], (for entry <- entries, do: %{term: term, uid: 0, cmd: entry})))
             if leaderCommit > s[:commit_index] do
               s = State.commit_index(s, min(leaderCommit, length(s[:log])))
             end
@@ -71,7 +70,7 @@ defmodule Follower do
   defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do
     (length(s[:log]) >= prevLogIndex and
      (prevLogIndex == 0 or
-      Enum.at(s[:log], prevLogIndex - 1) == prevLogTerm))
+      Enum.at(s[:log], prevLogIndex - 1)[:term] == prevLogTerm))
   end
 
 end
