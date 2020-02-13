@@ -29,14 +29,33 @@ defmodule Leader do
         Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]}")
         prevLog = s[:log]
         # Add the client request to its own log.
-        s = State.log(s, prevLog ++ [%{term: s[:curr_term], uid: uid, cmd: cmd}])
+        s = State.log(s, Enum.concat(prevLog, [%{term: s[:curr_term], uid: uid, cmd: cmd}]))
+        Monitor.debug(s, "log is #{prevLog}")
+        appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
+                          Log.getPrevLogIndex(prevLog),
+                          Log.getPrevLogTerm(prevLog),
+                          [cmd],
+                          s[:commit_index]}
         # broadcast the appendEntry RPC.
         for server <- s[:servers], server != self(), do:
-          send server, {:appendEntry, s[:curr_term], s[:id],
-                        Log.getPrevLogIndex(prevLog),
-                        Log.getPrevLogTerm(prevLog),
-                        [cmd],
-                        s[:commit_index]}
+          send server, appendEntryMsg
+        s = State.append_map(s, appendEntryMsg, 0)
+        # Monitor.debug(s, "appendentry message is: #{appendEntryMsg}")
+        Monitor.debug(s, "map is: #{s[:append_map][appendEntryMsg]}")
+      {:appendEntryResponse, term, res, originalMessage} ->
+        # -----------
+        Monitor.debug(s, "I have received append response")
+        {:appendEntry, term, leaderId, prevLogIndex,
+         prevLogTerm, entries, leaderCommit} = originalMessage
+        Monitor.debug(s, "original message is: #{originalMessage}")
+        Monitor.debug(s, "map is: #{s[:append_map][originalMessage]}")
+        s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
+        if s[:append_map][originalMessage] >= s[:majority] and leaderCommit == s[:commit_index]  do
+          for entry <- entries, do:
+            send s[:databaseP], {:EXECUTE, entry}
+          State.commit_index(s, s[:commit_index] + length(entries))
+          Monitor.debug(s, "I have committed a new entry")
+        end
 
       # TODO: step down when discovered server with highter term
       # {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} when term > s[:curr_term] ->

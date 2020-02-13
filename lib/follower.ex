@@ -10,7 +10,7 @@ defmodule Follower do
     receive do
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
-       entries, leaderCommit} ->
+       entries, leaderCommit} = m ->
         if term > s[:curr_term] do
           s = State.voted_for(s, nil)
           s = State.curr_term(s, term)
@@ -28,10 +28,10 @@ defmodule Follower do
             if leaderCommit > s[:commit_index] do
               s = State.commit_index(s, min(leaderCommit, length(s[:log])))
             end
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m})
             Monitor.debug(s, "Log updated log length #{length(s[:log])}")
             next(s, resetTimer(timer))
-          true ->
+          true -> # heartbeat
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
             next(s, resetTimer(timer))
         end

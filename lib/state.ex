@@ -32,6 +32,7 @@ def initialise(config, server_id, servers, databaseP) do
     match_index:  Map.new,
 
     # add additional state variables of interest
+    append_map: Map.new,
   }
 end # initialise
 
@@ -51,8 +52,13 @@ def match_index(s, v),    do: Map.put(s, :match_index, v)     # sets new  match_
 def match_index(s, i, v), do: Map.put(s, :match_index,
                                       Map.put(s.match_index, i, v))
 
-def log(s, v), do: Map.put(s, :log, v)
+
 
 # add additional setters
+def log(s, v), do: Map.put(s, :log, v)
+
+def append_map(s, v), do: Map.put(s, :append_map, v)
+
+def append_map(s, i, v), do: Map.put(s, :append_map, Map.put(s.append_map, i, v))
 
 end # State
