@@ -20,9 +20,9 @@ defmodule Leader do
       {:resendHeartBeat} ->
         for server <- s[:servers], server != self(), do:
           send(server, {:appendEntry, s[:curr_term], s[:id],
-                        0,  # prevLogIndex
-                        0,  # prevLogTerm
-                        nil,
+                        0,   # prevLogIndex
+                        0,   # prevLogTerm
+                        nil, # entries
                         s[:commit_index]})
         Process.send_after(self(), {:resendHeartBeat}, 50)
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
@@ -35,7 +35,7 @@ defmodule Leader do
           send server, {:appendEntry, s[:curr_term], s[:id],
                         Log.getPrevLogIndex(prevLog),
                         Log.getPrevLogTerm(prevLog),
-                        cmd,
+                        [cmd],
                         s[:commit_index]}
 
       # TODO: step down when discovered server with highter term
