@@ -11,7 +11,7 @@ defmodule Leader do
     # First heartbeat to establish self as leader
     for server <- s[:servers], server != self(), do:
       send(server, {:appendEntry, s[:curr_term], s[:id], 0, 0, nil, s[:commit_index]})
-    Process.send_after(self(), {:resendHeartBeat}, 20)
+    Process.send_after(self(), {:resendHeartBeat}, 50)
     next(s)
   end
 
@@ -33,7 +33,8 @@ defmodule Leader do
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
         Monitor.notify s, {:CLIENT_REQUEST, s[:id]}
-        Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]}")
+        Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]} the cmd is")
+        IO.inspect(cmd)
         # TODO: ASSUME LEN(ENTRIES) == 1
         prevLog = s[:log]
         # Add the client request to its own log.
@@ -52,7 +53,8 @@ defmodule Leader do
           send server, appendEntryMsg
         next(s)
 
-      {:appendEntryResponse, term, success, originalMessage} ->
+      # TODO: retries indefinitely if never received success from follower
+      {:appendEntryResponse, term, true, originalMessage, from} ->
         # -----------
         # Monitor.debug(s, "I have received append response")
         {:appendEntry, term, leaderId, prevLogIndex,
@@ -60,19 +62,23 @@ defmodule Leader do
         # Monitor.debug(s, "append map is: #{s[:append_map][originalMessage]}")
         s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
 
-        # TODO: update next_index and match_index
+        # TODO: update match_index, include in msg
+        s = State.next_index(s, from, s[:next_index][from] + 1)
 
+        # TODO: race condition when sending msg to database, add reply? later requests might reach majority earlier?
+        # NOTE: this might cause arithmetic error bc we now send similar messages in line 91
         # check if commit index condition is right
         if s[:append_map][originalMessage] >= s[:majority] and leaderCommit == s[:commit_index]  do
           # Monitor.debug(s, "COMMITED BC append map is: #{s[:append_map][originalMessage]} reaches majority")
           for entry <- entries, do:
+            IO.inspect(entry[:cmd])
+          for entry <- entries, do:
             send s[:databaseP], {:EXECUTE, entry[:cmd]}
 
-        # TODO: figure out client_reply format and send {:CLIENT_REPLY}
+          # TODO: figure out client_reply format and send {:CLIENT_REPLY}
 
           s = State.commit_index(s, s[:commit_index] + length(entries))
-          # Monitor.debug(s, "My commit index is #{s[:commit_index]}")
-          Monitor.debug(s, "I have committed a new entry")
+          Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]}")
           next(s)
         end
         next(s)

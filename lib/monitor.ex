@@ -65,6 +65,8 @@ def next(state) do
   { :DB_move, db, seqnum, command} ->
     { :move, amount, from, to } = command
 
+    # state.updates format {server_id : num of updates executed by db}
+    # state.moves format {seqnum : command} should be the same for all databases?
     done = Map.get(state.updates, db, 0)
 
     if seqnum != done + 1, do:

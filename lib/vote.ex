@@ -13,7 +13,7 @@ defmodule Vote do
 
     #TODO: change the time
     Process.send_after(self(), {:voteTimeOut}, (100 + DAC.random(100)))
-
+    
     collectVotes(s)
 
     if s[:votes] < s[:majority] do

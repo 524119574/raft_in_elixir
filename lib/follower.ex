@@ -38,17 +38,34 @@ defmodule Follower do
             next(s, resetTimer(timer))
           entries != nil ->
             s = State.log(s, Enum.concat(s[:log], (for entry <- entries, do: entry)))
-            if leaderCommit > s[:commit_index] do
-              s = State.commit_index(s, min(leaderCommit, length(s[:log])))
-            end
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m})
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self()})
             Monitor.debug(s, "Log updated log length #{length(s[:log])}")
+            # update commit index if necessary
+            s = State.commit_index(s, if leaderCommit > s[:commit_index] 
+                                      do min(leaderCommit, length(s[:log])) 
+                                      else s[:commit_index] end)
+            # update last applied if necessary, might have off by 1 problems
+            if s[:commit_index] > s[:last_applied] do
+              s = State.last_applied(s, s[:last_applied] + 1)
+              send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] - 1)[:cmd]}
+              next(s, resetTimer(timer))
+            end
             next(s, resetTimer(timer))
           # Question: how to differentiate hearbeat response from append entry response?
+
           # heartbeat
           true -> 
             # Monitor.debug(s, "received hearbeat")
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
+            s = State.commit_index(s, if leaderCommit > s[:commit_index] 
+                                      do min(leaderCommit, length(s[:log])) 
+                                      else s[:commit_index] end)
+            # update last applied if necessary
+            if s[:commit_index] > s[:last_applied] do
+              s = State.last_applied(s, s[:last_applied] + 1)
+              send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] - 1)[:cmd]}
+              next(s, resetTimer(timer))
+            end
             next(s, resetTimer(timer))
         end
 
@@ -81,7 +98,6 @@ defmodule Follower do
       #   next(s, timer)
 
       {:timeout} ->
-        # IO.inspect(timer)
         Monitor.debug(s, "converts to candidate from follower in term #{s[:curr_term]} (+1)") 
         Candidate.start(s)
     end
