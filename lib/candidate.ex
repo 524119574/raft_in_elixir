@@ -29,20 +29,15 @@ defmodule Candidate do
         else
           next(s)
         end
-      {:appendEntry, term, leaderId,
-       prevLogIndex, prevLogTerm,
-       entries, leaderCommit} ->
+
+      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
         if term >= s[:curr_term] do
-          # TODO: need to reset s[:votes]?
-          if term > s[:curr_term] do
-            s = State.voted_for(s, nil)
-            s = State.curr_term(s, term)
-          end
-          # Pay attention to the off by 1 error here.
+          s = State.curr_term(s, term)
+          # TODO: append entry response format not sure if correct
           send Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true}
           Follower.start(s)
         end
     end
-  end
+  end #defp
 
-end
+end #Candidate

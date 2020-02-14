@@ -11,8 +11,6 @@ def start(config, server_id, databaseP) do
   { :BIND, servers } ->
     s = State.initialise(config, server_id, servers, databaseP)
     s = Follower.start(s)
-    # s = Follower.init(s)
-    # _ = Server.next(s)
   end # receive
 end # start
 

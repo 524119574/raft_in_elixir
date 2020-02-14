@@ -38,7 +38,7 @@ defmodule Vote do
         end
         
       {:requestVoteResponse, term, false} ->
-        Monitor.debug(s, "error.....")
+        Monitor.debug(s, "didn't get a vote")
     end
 
   end

@@ -87,8 +87,9 @@ def next(state) do
     state = Monitor.updates(state, db, seqnum)
     Monitor.next(state)
 
-  { :CLIENT_REQUEST, server_num } ->  # client requests seen by leaders
-    state = Monitor.requests(state, server_num, state.requests + 1)
+  { :CLIENT_REQUEST, server_id } ->  # client requests seen by leaders
+    # changed this line bc updates not initialized to 0
+    state = Monitor.requests(state, server_id, Map.get(state.updates, server_id, 0) + 1)
     Monitor.next(state)
 
   { :PRINT } ->
