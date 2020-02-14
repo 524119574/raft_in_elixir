@@ -58,8 +58,8 @@ defp more_parameters(config) do
     append_entries_timeout: 10, # timeout(ms) for expecting reply to append_entries request
 
     crash_servers: %{		        # %{ server_num => crash_after_time, ...}
-      1 => 2500,
-      2 => 2500,
+      1 => 3000,
+      2 => 3000,
       3 => 15_000,
       4 => 15_000,
       5 => 15_000
