@@ -17,6 +17,8 @@ defmodule Leader do
 
   defp next(s) do
     receive do
+      { :crash_timeout } -> IO.puts "crash time out"
+
       {:resendHeartBeat} ->
         for server <- s[:servers], server != self(), do:
           send(server, {:appendEntry, s[:curr_term], s[:id],
@@ -88,6 +90,7 @@ defmodule Leader do
 
       # step down when discovered server with highter term
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
+        Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
         if term > s[:curr_term] do
           s = State.curr_term(s, term)
           # TODO: DO WE NEED TO FORWARD THIS REQUEST VOTE MSG TO THE FOLLOWER IT CONVERTS INTO?
@@ -95,6 +98,7 @@ defmodule Leader do
         end
 
       {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
+        Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
         if term > s[:curr_term] do
           s = State.curr_term(s, term)
           # TODO: append entry response format not sure if correct, same as in candidate, do we need this?

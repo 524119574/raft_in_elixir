@@ -30,6 +30,7 @@ defmodule Vote do
       {:requestVoteResponse, term, true} ->
         s = State.votes(s, s[:votes] + 1)
         Monitor.debug(s, "collected one vote!!! The total vote is #{s[:votes]}")
+        # QUESTION: SPLIT VOTE IF EVEN # OF SERVERS?
         if s[:votes] == s[:majority] do
           Monitor.debug(s, "current term: #{s[:curr_term]}, id: #{s[:id]}")
           send s[:selfP], {:Elected, s[:curr_term]}

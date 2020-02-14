@@ -10,6 +10,9 @@ defmodule Follower do
 
   defp next(s, timer) do
     receive do
+      # currently don't restart after crash, can change to sleep
+      { :crash_timeout } -> Monitor.debug(s, "crashed")
+
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
        entries, leaderCommit} = m ->

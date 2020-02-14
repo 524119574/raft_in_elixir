@@ -9,6 +9,9 @@ defmodule Candidate do
 
   defp next(s) do
     receive do
+
+      { :crash_timeout } -> Monitor.debug(s, "crashed")
+      
       {:Elected, termId} ->
         # We add the if check here because we want to avoid the situation
         # where the candidate spin up the vote process and then becomes the
@@ -31,6 +34,7 @@ defmodule Candidate do
         end
 
       {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
+        Monitor.debug(s, "converts to follower from candidate in term #{s[:curr_term]}")
         if term >= s[:curr_term] do
           s = State.curr_term(s, term)
           # TODO: append entry response format not sure if correct
