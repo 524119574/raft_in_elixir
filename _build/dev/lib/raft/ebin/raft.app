@@ -1,9 +1,0 @@
-{application,raft,
-             [{applications,[kernel,stdlib,elixir,logger]},
-              {description,"raft"},
-              {modules,['Elixir.Candidate','Elixir.Client','Elixir.DAC',
-                        'Elixir.Database','Elixir.Follower','Elixir.Leader',
-                        'Elixir.Log','Elixir.Monitor','Elixir.Raft',
-                        'Elixir.Server','Elixir.State','Elixir.Vote']},
-              {registered,[]},
-              {vsn,"0.1.0"}]}.
