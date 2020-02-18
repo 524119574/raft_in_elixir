@@ -1,5 +1,6 @@
 defmodule Follower do
   def start(s) do
+    Monitor.debug(s, "becomes follower")
     s = State.role(s, :FOLLOWER)
     s = State.voted_for(s, nil)
     s = State.votes(s, 0)
@@ -21,7 +22,7 @@ defmodule Follower do
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
-       entries, leaderCommit} = m ->
+       entries, leaderCommit, clientP} = m ->
         # TODO: not sure if needed
         if term > s[:curr_term] do
           s = State.voted_for(s, nil)
@@ -38,7 +39,7 @@ defmodule Follower do
             next(s, resetTimer(timer))
           entries != nil ->
             s = State.log(s, Enum.concat(s[:log], (for entry <- entries, do: entry)))
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self()})
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), Log.getPrevLogIndex(s[:log])})
             Monitor.debug(s, "Log updated log length #{length(s[:log])}")
             # update commit index if necessary
             s = State.commit_index(s, if leaderCommit > s[:commit_index] 

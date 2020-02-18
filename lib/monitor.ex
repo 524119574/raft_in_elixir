@@ -82,6 +82,7 @@ def next(state) do
         if amount != t.amount or from != t.from or to != t.to, do:
 	  Monitor.halt " ** error db #{db}.#{done} [#{amount},#{from},#{to}] " <>
             "= log #{done}/#{map_size(state.moves)} [#{t.amount},#{t.from},#{t.to}]"
+        # IO.inspect(state.moves)
         state.moves
       end # case
 

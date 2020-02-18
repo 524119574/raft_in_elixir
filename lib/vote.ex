@@ -34,7 +34,7 @@ defmodule Vote do
         if s[:votes] == s[:majority] do
           Monitor.debug(s, "current term: #{s[:curr_term]}, id: #{s[:id]}")
           send s[:selfP], {:Elected, s[:curr_term]}
-          Process.exit(self(), :kill)
+          # Process.exit(self(), :kill)
         else
           collectVotes(s)
         end

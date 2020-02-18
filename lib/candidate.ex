@@ -17,8 +17,9 @@ defmodule Candidate do
         Process.sleep(15_000)
 
       {:Elected, term} ->
+        Monitor.debug(s, "received elected as leader msg")
         if (term == s[:curr_term]) do
-          Process.exit(votePId, :kill)
+          # Process.exit(votePId, :kill)
           Leader.start(s)
         else
           next(s, votePId)
@@ -26,7 +27,7 @@ defmodule Candidate do
 
       {:NewElection, term} ->
         if (term == s[:curr_term]) do
-          Process.exit(votePId, :kill)
+          # Process.exit(votePId, :kill)
           Candidate.start(s)
         else
           next(s, votePId)
