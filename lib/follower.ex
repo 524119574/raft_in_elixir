@@ -23,9 +23,9 @@ defmodule Follower do
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
        entries, leaderCommit, clientP} = m ->
-        # TODO: not sure if needed
         s =
           cond do
+            # Update current term if the term received is larger than self.
             term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
             true -> s
           end
@@ -73,6 +73,12 @@ defmodule Follower do
 
       # TODO: voting logic not sure if entirely correct
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
+        s =
+        cond do
+          # Update current term if the term received is larger than self.
+          term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
+          true -> s
+        end
         up_to_date = lastLogTerm > Log.getPrevLogTerm(s[:log]) or
                     (lastLogTerm == Log.getPrevLogTerm(s[:log]) and lastLogIndex >= Log.getPrevLogIndex(s[:log]))
         cond do

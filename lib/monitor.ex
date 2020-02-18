@@ -7,7 +7,7 @@ defmodule Monitor do
 def notify(s, message), do: send s.config.monitorP, message
 
 def debug(s, string) do
-  if s.config.debug_level == 0, do: IO.puts "server #{s.id} #{string}"
+  if s.config.debug_level == 0, do: IO.puts "server #{s.id} in term #{Map.get(s, :curr_term, 0)} #{string}"
 end # debug
 
 def debug(s, level, string) do

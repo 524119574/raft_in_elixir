@@ -17,7 +17,7 @@ defmodule Leader do
 
   defp next(s) do
     receive do
-      { :crash_timeout } -> 
+      { :crash_timeout } ->
         Monitor.debug(s, "crashed")
         Process.sleep(30_000)
 
@@ -50,8 +50,8 @@ defmodule Leader do
                           client}
         # Note the off by 1 error - append entry already appended to self
         s = State.append_map(s, appendEntryMsg, 1)
-        IO.puts "sent msg to followers:"
-        IO.inspect(appendEntryMsg)
+        # IO.puts "sent msg to followers:"
+        # IO.inspect(appendEntryMsg)
 
         # broadcast the appendEntry RPC.
         for server <- s[:servers], server != self(), do:
@@ -119,7 +119,7 @@ defmodule Leader do
 
       # step down when discovered server with highter term
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
-        up_to_date = lastLogTerm > Log.getPrevLogTerm(s[:log]) or 
+        up_to_date = lastLogTerm > Log.getPrevLogTerm(s[:log]) or
                     (lastLogTerm == Log.getPrevLogTerm(s[:log]) and lastLogIndex >= Log.getPrevLogIndex(s[:log]))
 
         if term > s[:curr_term] and up_to_date do
