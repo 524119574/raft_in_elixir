@@ -4,18 +4,51 @@ defmodule Leader do
     Monitor.debug(s, "I am the leader for term #{s[:curr_term]}")
     s = State.role(s, :LEADER)
     # Initialize next_index and match_index for other servers
-    next_index = for server <- s[:servers], server != self(), into: %{}, do: {server, Log.getPrevLogIndex(s[:log]) + 1}
+    next_index = for server <- s[:servers], server != self(), into: %{}, do: {server, s[:commit_index] + 1}
     match_index = for server <- s[:servers], server != self(), into: %{}, do: {server, 0}
     s = State.next_index(s, next_index)
     s = State.match_index(s, match_index)
+    s = State.append_map(s, Map.new)
     # First heartbeat to establish self as leader
     for server <- s[:servers], server != self(), do:
-      send(server, {:appendEntry, s[:curr_term], s[:id], 0, 0, nil, s[:commit_index]})
+      send(server, {:appendEntry, s[:curr_term], s[:id], 0, 0, nil, s[:commit_index], nil})
     Process.send_after(self(), {:resendHeartBeat}, 50)
+
+    # leader crash every 5000 ms
+    Process.send_after(self(), {:crash_timeout}, 2500)
+
+    # commit uncommitted index in its log
+    if length(s[:log]) > s[:commit_index] do
+      IO.puts "Leader encounters previously uncommitted entry"
+      num_of_entries = length(s[:log]) - s[:commit_index]
+      # NOTE: last arg client hard coded to self() bc don't know
+      append_msgs = Enum.map(1..num_of_entries, fn i -> 
+        {:appendEntry, s[:curr_term], s[:id],
+                      length(s[:log]) - i,              #prevLogIndex
+                      Enum.at(s[:log], - i - 1)[:term], #prevLogTerm
+                      [Enum.at(s[:log], -i)],
+                      s[:commit_index],
+                      self()} end)
+      # reverse msgs to send in log entry order
+      append_msgs = Enum.reverse(append_msgs)
+      # IO.inspect(append_msgs)
+
+      # broadcast appendEntry
+      Enum.map(append_msgs, fn msg -> 
+        for server <- s[:servers], server != self(), do:
+          send server, msg
+        end)
+      # put messages into append_map
+      s = Enum.reduce(append_msgs, s, fn msg, s -> State.append_map(s, msg, 1) end)
+      IO.inspect(s[:append_map])
+      IO.puts "think sent msgs to append prev"
+      next(s)
+    end
     next(s)
   end
 
   defp next(s) do
+
     receive do
       { :crash_timeout } ->
         Monitor.debug(s, "crashed")
@@ -27,93 +60,84 @@ defmodule Leader do
                         0,   # prevLogIndex
                         0,   # prevLogTerm
                         nil, # entries
-                        s[:commit_index]})
+                        s[:commit_index],
+                        nil}) # clientP which do not have in heartbeat})
         Process.send_after(self(), {:resendHeartBeat}, 50)
         next(s)
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
-        Monitor.notify s, {:CLIENT_REQUEST, s[:id]}
-        Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]} the cmd is")
-        IO.inspect(cmd)
-        IO.inspect(uid)
-        # TODO: ASSUME LEN(ENTRIES) == 1
-        prevLog = s[:log]
-        # Add the client request to its own log.
-        s = State.log(s, Enum.concat(prevLog, [%{term: s[:curr_term], uid: uid, cmd: cmd}]))
-        s = State.commit_log(s, uid, false)
-        Monitor.debug(s, "Leader log updated log length #{length(s[:log])}")
-        appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
-                          Log.getPrevLogIndex(prevLog),
-                          Log.getPrevLogTerm(prevLog),
-                          [%{term: s[:curr_term], uid: uid, cmd: cmd}],
-                          s[:commit_index],
-                          client}
-        # Note the off by 1 error - append entry already appended to self
-        s = State.append_map(s, appendEntryMsg, 1)
-        # IO.puts "sent msg to followers:"
-        # IO.inspect(appendEntryMsg)
-
-        # broadcast the appendEntry RPC.
-        for server <- s[:servers], server != self(), do:
-          send server, appendEntryMsg
-        next(s)
-
-      # TODO: retries indefinitely if never received success from follower
-      {:appendEntryResponse, term, true, originalMessage, from, index} ->
-        {:appendEntry, term, leaderId, prevLogIndex,
-         prevLogTerm, entries, leaderCommit, clientP} = originalMessage
-        # TODO: update match_index, include in msg
-        s = State.next_index(s, from, s[:next_index][from] + 1)
-        # IO.inspect(s[:next_index])
-        # s = State.next_index(s, from, s[:match_index])
-
-        # Monitor.debug(s, "append map is: #{s[:append_map][originalMessage]}")
-        # RAISE ARITHMATIC ERROR
-        # IO.puts("rcv apd msg")
-        # IO.inspect(s[:append_map])
-        # IO.inspect(originalMessage)
-        IO.puts (Map.has_key?(s[:append_map], originalMessage))
-        s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
-        # TODO: race condition when sending msg to database, add reply? later requests might reach majority earlier?
-        # NOTE: this might cause arithmetic error bc we now send similar messages in line 91
-        # check if commit index condition is right
-        if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
-        and !s[:commit_log][Enum.at(entries, 0)[:uid]] do
-          # Monitor.debug(s, "COMMITED BC append map is: #{s[:append_map][originalMessage]} reaches majority")
-          IO.puts "race? skipped log entry?"
-          IO.puts "#{prevLogIndex} #{leaderCommit}"
-          for entry <- entries, do:
-            IO.inspect(entry[:cmd])
-          IO.puts "reaches majority"
-          for entry <- entries, do:
-            send s[:databaseP], {:EXECUTE, entry[:cmd]}
-
-          s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
-          # IO.inspect(s[:commit_log])
-          s = State.commit_index(s, s[:commit_index] + length(entries))
-          Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]}")
-
-          # TODO: figure out client_reply format and send {:CLIENT_REPLY}
-          send clientP, {:CLIENT_REPLY, %{leaderP: self()}}
-
+        # TODO: prevents broadcasting the same request twice (client sends cuz timeout), change into retries indefinitely
+        if (!Map.has_key?(s[:commit_log], uid)) do
+          Monitor.notify(s, { :CLIENT_REQUEST, s[:id] })
+          Monitor.debug(s, "I have received a request from client in term #{s[:curr_term]} cmd is #{inspect(cmd)} uid is #{inspect(uid)}")
+          # TODO: ASSUME LEN(ENTRIES) == 1
+          prevLog = s[:log]
+          # Add the client request to its own log.
+          s = State.log(s, Enum.concat(prevLog, [%{term: s[:curr_term], uid: uid, cmd: cmd}]))
+          s = State.commit_log(s, uid, false)
+          Monitor.debug(s, "Leader log updated log length #{length(s[:log])}")
+          appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
+                            Log.getPrevLogIndex(prevLog),
+                            Log.getPrevLogTerm(prevLog),
+                            [%{term: s[:curr_term], uid: uid, cmd: cmd}],
+                            s[:commit_index],
+                            client}
+          # Note the off by 1 error - append entry already appended to self
+          s = State.append_map(s, appendEntryMsg, 1)
+          # broadcast the appendEntry RPC.
+          for server <- s[:servers], server != self(), do:
+            send server, appendEntryMsg
           next(s)
         end
         next(s)
 
-      # failed append entry due to inconsistency
+      # TODO: retries indefinitely if never received success from follower
+      {:appendEntryResponse, term, true, originalMessage, from, matchIndex} ->
+        {:appendEntry, term, leaderId, prevLogIndex,
+         prevLogTerm, entries, leaderCommit, clientP} = originalMessage
+        # TODO: update match_index, include in msg; next_index might be INCORRECT
+        s = State.next_index(s, from, max(prevLogIndex + 2, s[:next_index][from]))
+        s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
+
+        # RAISE ARITHMATIC ERROR
+        # Monitor.debug(s, "append map is: #{s[:append_map]}")
+        s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
+        # check if commit index condition is right
+        if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
+        and !s[:commit_log][Enum.at(entries, 0)[:uid]] do
+          # Monitor.debug(s, "COMMITED BC append map is: #{s[:append_map][originalMessage]} reaches majority")
+          for entry <- entries, do: send s[:databaseP], {:EXECUTE, entry[:cmd]}
+          s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
+          s = State.commit_index(s, s[:commit_index] + length(entries))
+          s = State.last_applied(s, s[:commit_index])
+          # IO.inspect(s[:commit_log])
+          IO.puts "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed by leader"
+          Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]} log length #{length(s[:log])}")
+
+          # TODO: figure out client_reply format and send {:CLIENT_REPLY}
+          send clientP, {:CLIENT_REPLY, %{leaderP: self()}}
+          next(s)
+        end
+        next(s)
+
       {:appendEntryFailedResponse, term, false, from } ->
+        # leader is out of date
+        if term > s[:curr_term] do
+          Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
+          s = State.curr_term(s, term)
+          Follower.start(s)
+        end
+
         Monitor.debug(s, "some server failed to append entry due to log inconsistency")
         # decrement next_index by 1
         new_next_index = s[:next_index][from] - 1
         s = State.next_index(s, from, new_next_index)
-        # not sure if this lices the list correctly
-        prevLog = Log.deleteLastElement(s[:log])
         new_append_entry_msg = {:appendEntry, s[:curr_term], s[:id],
-                          Log.getPrevLogIndex(prevLog),
-                          Log.getPrevLogTerm(prevLog),
-                          Enum.at(prevLog, new_next_index - 1),
-                          s[:commit_index]}
-        # retries appenEntryRPC with decremented next_index
+                          new_next_index - 1,                               #prevLogIndex
+                          Enum.at(s[:log], new_next_index - 1 - 1)[:term],  #prevLogTerm
+                          [Enum.at(s[:log], new_next_index - 1)],
+                          s[:commit_index],
+                          nil}
         send from, new_append_entry_msg
         next(s)
 
@@ -132,14 +156,16 @@ defmodule Leader do
           next(s)
         end
 
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
-        Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
+      # step down when discovered server with highter term
+      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit, clientP} ->
         if term > s[:curr_term] do
+          Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
           s = State.curr_term(s, term)
           # TODO: append entry response format not sure if correct, same problem in candidate, do we need this?
           send Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()}
           Follower.start(s)
         end
+        next(s)
     end
   end
 

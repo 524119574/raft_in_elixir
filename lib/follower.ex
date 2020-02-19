@@ -11,6 +11,7 @@ defmodule Follower do
 
   defp next(s, timer) do
     receive do
+      # TODO: not sure if timer related things are needed
       { :crash_timeout } ->
         Process.cancel_timer(timer)
         Monitor.debug(s, "crashed and will sleep for 1000 ms")
@@ -23,49 +24,77 @@ defmodule Follower do
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
        entries, leaderCommit, clientP} = m ->
+
+        # leader who sent the message is out-of-date
+        if term < s[:curr_term] do
+          send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
+          next(s, resetTimer(timer))
+        end
+        # Update current term and voted for if the term received is larger than self.
         s =
           cond do
-            # Update current term if the term received is larger than self.
             term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
             true -> s
           end
+
         cond do
-          term < s[:curr_term] ->
-            # TODO: this means leader is out-of-date right? should we send a different response to differentiate from second case
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false})
+          # heartbeat
+          entries == nil ->
+            # Monitor.debug(s, "received hearbeat from #{leaderId} whose commit index is #{leaderCommit}")
+            # send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
+            s = State.commit_index(s, if leaderCommit > s[:commit_index]
+                                      do min(leaderCommit, length(s[:log]))
+                                      else s[:commit_index] end)
+            # update last applied if received higher commit index
+            if s[:commit_index] > s[:last_applied] do
+              num_to_commit = s[:commit_index] - s[:last_applied]
+              for i <- 1..s[:commit_index] - s[:last_applied], do: send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] + i - 1)[:cmd]}
+              s = State.last_applied(s, s[:commit_index])
+              Monitor.debug(s, "heartbeat increment last_applied follower last applied is #{s[:last_applied]}")
+              next(s, resetTimer(timer))
+            end
             next(s, resetTimer(timer))
+
           !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
-            IO.puts "previous entry not matching case"
+            Monitor.debug(s, "previous entry not matching")
+            Monitor.debug(s, "follower rcved entry #{inspect(Enum.at(entries, 0))} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
             next(s, resetTimer(timer))
-          entries != nil ->
+
+          true ->
+            s = State.commit_log(s, Enum.at(entries, 0)[:uid], false)
+            # use smart enum function to do concat and insert at the same time?
+            if isCurrentEntryMatch(s, prevLogIndex + 1, Enum.at(entries, 0)[:term], Enum.at(entries, 0)[:uid]) do
+              s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
+              s = State.commit_index(s, if leaderCommit > s[:commit_index]
+                                        do min(leaderCommit, length(s[:log]))
+                                        else s[:commit_index] end)
+              send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), prevLogIndex + 1})
+              # Monitor.debug(s, "current entry matches, didn't do anything")
+              next(s, resetTimer(timer))
+            end
+
             s = State.log(s, Enum.concat(s[:log], (for entry <- entries, do: entry)))
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), Log.getPrevLogIndex(s[:log])})
-            Monitor.debug(s, "Log updated log length #{length(s[:log])} cur term: #{s[:curr_term]}")
+            # s = State.log(s, Enum.slice(s[:log], 0..prevLogIndex) ++ entries)
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), prevLogIndex + 1})
+            # Monitor.debug(s, "Log updated log length #{length(s[:log])} cur term: #{s[:curr_term]}")
             # update commit index if necessary
             s = State.commit_index(s, if leaderCommit > s[:commit_index]
                                       do min(leaderCommit, length(s[:log]))
                                       else s[:commit_index] end)
+            # Monitor.debug(s, "follower commit index is #{s[:commit_index]} rcved from leader is #{leaderCommit}")
+
             # update last applied if necessary, might have off by 1 problems
             if s[:commit_index] > s[:last_applied] do
-              s = State.last_applied(s, s[:last_applied] + 1)
-              send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] - 1)[:cmd]}
-              next(s, resetTimer(timer))
-            end
-            next(s, resetTimer(timer))
-          # Question: how to differentiate hearbeat response from append entry response?
-
-          # heartbeat
-          true ->
-            # Monitor.debug(s, "received hearbeat")
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
-            s = State.commit_index(s, if leaderCommit > s[:commit_index]
-                                      do min(leaderCommit, length(s[:log]))
-                                      else s[:commit_index] end)
-            # update last applied if necessary
-            if s[:commit_index] > s[:last_applied] do
-              s = State.last_applied(s, s[:last_applied] + 1)
-              send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] - 1)[:cmd]}
+              # IO.puts "cmt - apply is #{s[:commit_index] - s[:last_applied]}"
+              num_to_commit = s[:commit_index] - s[:last_applied]
+              for i <- 1..s[:commit_index] - s[:last_applied], do: send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] + i - 1)[:cmd]}
+              # TODO: ADD COMMIT_LOG
+              #############
+              # mmp = for i <- 1..s[:commit_index] - s[:last_applied], into: %{}, do: {Enum.at(s[:log], s[:last_applied] + i - 1)[:uid], true}
+              # IO.inspect(mmp)
+              s = State.last_applied(s, s[:commit_index])
+              # Monitor.debug(s, "follower last applied is #{s[:last_applied]}")
               next(s, resetTimer(timer))
             end
             next(s, resetTimer(timer))
@@ -107,6 +136,7 @@ defmodule Follower do
 
       {:timeout} ->
         Monitor.debug(s, "converts to candidate from follower in term #{s[:curr_term]} (+1)")
+        Process.cancel_timer(timer)
         Candidate.start(s)
     end
   end
@@ -117,9 +147,17 @@ defmodule Follower do
   end
 
   defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do
+    # Monitor.debug(s, "prev entry look at #{inspect(Enum.at(s[:log], prevLogIndex - 1))}")
     (length(s[:log]) >= prevLogIndex and
      (prevLogIndex == 0 or
       Enum.at(s[:log], prevLogIndex - 1)[:term] == prevLogTerm))
+  end
+
+  defp isCurrentEntryMatch(s, curEntryIndex, curEntryTerm, curEntryUid) do
+    # Monitor.debug(s, "current entry look at #{inspect(Enum.at(s[:log], prevLogIndex))}")
+    (length(s[:log]) >= curEntryIndex and
+    (Enum.at(s[:log], curEntryIndex - 1)[:term] == curEntryTerm) and 
+    (Enum.at(s[:log], curEntryIndex - 1)[:uid] == curEntryUid))
   end
 
 end

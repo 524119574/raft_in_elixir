@@ -45,6 +45,7 @@ def next(c) do
 end # next
 
 def send_request(c, client_request) do
+  # IO.puts "client #{c.id} sent request #{c.cmd_seqnum}"
   send c.leaderP, client_request
 
   receive do

@@ -75,7 +75,6 @@ def next(state) do
     moves =
       case Map.get(state.moves, seqnum) do
       nil ->
-        # IO.puts "db #{db} seq #{seqnum} = #{done+1}"
         Map.put state.moves, seqnum, %{ amount: amount, from: from, to: to }
 
       t -> # already logged - check command
@@ -91,8 +90,9 @@ def next(state) do
     Monitor.next(state)
 
   { :CLIENT_REQUEST, server_id } ->  # client requests seen by leaders
+    # state = Monitor.requests(state, server_id, state.requests + 1)
     # changed this line bc updates not initialized to 0
-    state = Monitor.requests(state, server_id, Map.get(state.updates, server_id, 0) + 1)
+    state = Monitor.requests(state, server_id, Map.get(state.requests, server_id, 0) + 1)
     Monitor.next(state)
 
   { :PRINT } ->

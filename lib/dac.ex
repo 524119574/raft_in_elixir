@@ -46,10 +46,10 @@ defp more_parameters(config) do
     debug_level:     0,         # debug level 0
     print_after:     2_000,     # print transaction log summary every print_after millisecs
 
-    client_requests: 1,    	    # max requests each client will make
+    client_requests: 100,    	    # max requests each client will make # ori1
     client_sleep:    5,        	# time to sleep before sending next request
-    client_stop:     60_000,  	# time after which client should stop sending requests
-    client_timeout:  500,       # timeout for expecting reply to client request
+    client_stop:     80_000,  	# time after which client should stop sending requests #ori 60_000
+    client_timeout:  500,       # timeout for expecting reply to client request # original 500
 
     n_accounts:      100,	      # number of active bank accounts
     max_amount:      1_000,	    # max amount moved between accounts
@@ -58,7 +58,7 @@ defp more_parameters(config) do
     append_entries_timeout: 10, # timeout(ms) for expecting reply to append_entries request
 
     crash_servers: %{		        # %{ server_num => crash_after_time, ...}
-      1 => 15_000,
+      1 => 4_000,
       2 => 15_000,
       3 => 15_000,
       4 => 15_000,

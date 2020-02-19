@@ -9,7 +9,7 @@ defmodule Candidate do
   end
 
   defp next(s, votePId) do
-    Monitor.debug(s, " is collecting messages as Candidate")
+    # Monitor.debug(s, " is collecting messages as Candidate")
     receive do
       {:crash_timeout} ->
         Monitor.debug(s, "crashed")
@@ -20,18 +20,18 @@ defmodule Candidate do
         if (term == s[:curr_term]) do
           # Process.exit(votePId, :kill)
           Leader.start(s)
-        else
-          next(s, votePId)
         end
+        next(s, votePId)
+
       {:NewElection, term} ->
         if (term == s[:curr_term]) do
           # Process.exit(votePId, :kill)
           Candidate.start(s)
-        else
-          next(s, votePId)
         end
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
-        Monitor.debug(s, "is candidate and append entry received from server #{leaderId}")
+        next(s, votePId)
+
+      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit, clientP} ->
+        # Monitor.debug(s, "is candidate and append entry received from server #{leaderId}")
         if term >= s[:curr_term] do
           Monitor.debug(s, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leaderId}")
           s = State.curr_term(s, term)
@@ -39,9 +39,8 @@ defmodule Candidate do
           send Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()}
           # Process.exit(votePId, :kill)
           Follower.start(s)
-        else
-          next(s, votePId)
         end
+        next(s, votePId)
     end
   end #defp
 
