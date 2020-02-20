@@ -51,6 +51,11 @@ defmodule Leader do
 
     receive do
       { :crash_timeout } ->
+        # Monitor.debug(s, "crashed and will sleep for 2000 ms")
+        # Process.sleep(2000)
+        # Monitor.debug(s, "leader finished sleeping and restarted")
+        # # IO.inspect(s[:log])
+        # next(s)
         Monitor.debug(s, "crashed")
         Process.sleep(30_000)
 
@@ -114,8 +119,6 @@ defmodule Leader do
           # IO.inspect(s[:commit_log])
           IO.puts "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed by leader"
           Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
-
-          # TODO: figure out client_reply format and send {:CLIENT_REPLY}
           send clientP, {:CLIENT_REPLY, %{leaderP: self()}}
           next(s)
         end

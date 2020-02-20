@@ -75,7 +75,6 @@ defmodule Follower do
               # Monitor.debug(s, "current entry matches, didn't do anything")
               next(s, resetTimer(timer))
             end
-
             s = State.log(
               s, Enum.reduce(entries, s[:log],
                              fn entry, log -> Log.appendNewEntry(log, entry) end))
@@ -103,7 +102,6 @@ defmodule Follower do
             next(s, resetTimer(timer))
         end
 
-      # TODO: voting logic not sure if entirely correct
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
         s =
         cond do
@@ -115,17 +113,14 @@ defmodule Follower do
                     (lastLogTerm == Log.getPrevLogTerm(s[:log]) and lastLogIndex >= Log.getPrevLogIndex(s[:log]))
         cond do
           term > s[:curr_term] and up_to_date ->
-            s = State.curr_term(s, term)
             s = State.voted_for(s, candidateId)
             Monitor.debug(s, "term bigger: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            # TODO: do we need to reset the timer here?
             next(s, resetTimer(timer))
           term == s[:curr_term] and up_to_date and (s[:voted_for] == nil or s[:voted_for] == candidateId) ->
             s = State.voted_for(s, candidateId)
             Monitor.debug(s, "term equal: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            # TODO: do we need to reset the timer here?
             next(s, resetTimer(timer))
           true ->
             send votePid, {:requestVoteResponse, s[:curr_term], false}
