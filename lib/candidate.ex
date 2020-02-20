@@ -30,7 +30,7 @@ defmodule Candidate do
         end
         next(s, votePId)
 
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit, clientP} ->
+      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
         Monitor.debug(s, "is candidate and append entry (heartbeat) received from server #{leaderId}")
         if term >= s[:curr_term] do
           Monitor.debug(s, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leaderId}")

@@ -23,7 +23,7 @@ defmodule Follower do
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
-       entries, leaderCommit, clientP} = m ->
+       entries, leaderCommit} = m ->
 
         # leader who sent the message is out-of-date
         if term < s[:curr_term] do

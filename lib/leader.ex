@@ -11,7 +11,7 @@ defmodule Leader do
     s = State.append_map(s, Map.new)
     # First heartbeat to establish self as leader
     for server <- s[:servers], server != self(), do:
-      send(server, {:appendEntry, s[:curr_term], s[:id], 0, 0, nil, s[:commit_index], nil})
+      send(server, {:appendEntry, s[:curr_term], s[:id], 0, 0, nil, s[:commit_index]})
     Process.send_after(self(), {:resendHeartBeat}, 50)
 
     # leader crash every 5000 ms
@@ -27,8 +27,7 @@ defmodule Leader do
                       Log.getPrevLogIndex(s[:log]) - i,                  #prevLogIndex
                       s[:log][Log.getPrevLogIndex(s[:log]) - i][:term],  #prevLogTerm
                       [s[:log][Log.getPrevLogIndex(s[:log]) + 1 - i]],
-                      s[:commit_index],
-                      self()} end)
+                      s[:commit_index]} end)
       # reverse msgs to send in log entry order
       append_msgs = Enum.reverse(append_msgs)
       # IO.inspect(append_msgs)
@@ -65,8 +64,7 @@ defmodule Leader do
                         0,   # prevLogIndex
                         0,   # prevLogTerm
                         nil, # entries
-                        s[:commit_index],
-                        nil}) # clientP which do not have in heartbeat})
+                        s[:commit_index]})
         Process.send_after(self(), {:resendHeartBeat}, 50)
         next(s)
 
@@ -84,11 +82,8 @@ defmodule Leader do
           appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
                             Log.getPrevLogIndex(prevLog),
                             Log.getPrevLogTerm(prevLog),
-                            [%{term: s[:curr_term], uid: uid, cmd: cmd}],
-                            s[:commit_index],
-                            client}
-          # Note the off by 1 error - append entry already appended to self
-          s = State.append_map(s, appendEntryMsg, 1)
+                            [%{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}],
+                            s[:commit_index]}
           # broadcast the appendEntry RPC.
           for server <- s[:servers], server != self(), do:
             send server, appendEntryMsg
@@ -99,15 +94,15 @@ defmodule Leader do
       # TODO: retries indefinitely if never received success from follower
       {:appendEntryResponse, term, true, originalMessage, from, matchIndex} ->
         {:appendEntry, term, leaderId, prevLogIndex,
-         prevLogTerm, entries, leaderCommit, clientP} = originalMessage
+         prevLogTerm, entries, leaderCommit} = originalMessage
         # TODO: update match_index, include in msg; next_index might be INCORRECT
         s = State.next_index(s, from, max(prevLogIndex + 2, s[:next_index][from]))
         s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
 
         # RAISE ARITHMATIC ERROR
-        Monitor.debug(s, "append map is: #{inspect(s[:append_map])}")
-        Monitor.debug(s, "original message: #{inspect(originalMessage)}")
-        s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
+        # Monitor.debug(s, "append map is: #{inspect(s[:append_map])}")
+        # Monitor.debug(s, "original message: #{inspect(originalMessage)}")
+        s = State.append_map(s, originalMessage, Map.get(s[:append_map], originalMessage, 1) + 1)
         # check if commit index condition is right
         if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
         and !s[:commit_log][Enum.at(entries, 0)[:uid]] do
@@ -119,7 +114,7 @@ defmodule Leader do
           # IO.inspect(s[:commit_log])
           IO.puts "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed by leader"
           Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
-          send clientP, {:CLIENT_REPLY, %{leaderP: self()}}
+          send Enum.at(entries, 0)[:clientP], {:CLIENT_REPLY, %{leaderP: self()}}
           next(s)
         end
         next(s)
@@ -140,8 +135,7 @@ defmodule Leader do
                           new_next_index - 1,                      # preLogIndex
                           s[:log][new_next_index - 1][:term],      # preLogTerm
                           [s[:log][new_next_index]],
-                          s[:commit_index],
-                          nil}
+                          s[:commit_index]}
         send from, new_append_entry_msg
         next(s)
 
@@ -161,7 +155,7 @@ defmodule Leader do
         end
 
       # step down when discovered server with highter term
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit, clientP} ->
+      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
         if term > s[:curr_term] do
           Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
           s = State.curr_term(s, term)
