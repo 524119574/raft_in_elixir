@@ -15,7 +15,7 @@ defmodule Leader do
     Process.send_after(self(), {:resendHeartBeat}, 50)
 
     # leader crash every 5000 ms
-    Process.send_after(self(), {:crash_timeout}, 2500)
+    Process.send_after(self(), {:crash_timeout}, 2000)
 
     # commit uncommitted index in its log
     if Log.getLogSize(s[:log]) > s[:commit_index] do
@@ -50,13 +50,13 @@ defmodule Leader do
 
     receive do
       { :crash_timeout } ->
-        # Monitor.debug(s, "crashed and will sleep for 2000 ms")
-        # Process.sleep(2000)
-        # Monitor.debug(s, "leader finished sleeping and restarted")
-        # # IO.inspect(s[:log])
-        # next(s)
-        Monitor.debug(s, "crashed")
-        Process.sleep(30_000)
+        Monitor.debug(s, "crashed and will sleep for 2000 ms")
+        Process.sleep(2000)
+        Monitor.debug(s, "leader finished sleeping and restarted")
+        # IO.inspect(s[:log])
+        next(s)
+        # Monitor.debug(s, "crashed")
+        # Process.sleep(30_000)
 
       {:resendHeartBeat} ->
         for server <- s[:servers], server != self(), do:
@@ -84,6 +84,9 @@ defmodule Leader do
                             Log.getPrevLogTerm(prevLog),
                             [%{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}],
                             s[:commit_index]}
+          # Note the off by 1 error - append entry already appended to self
+          # s = State.append_map(s, appendEntryMsg, 1)
+
           # broadcast the appendEntry RPC.
           for server <- s[:servers], server != self(), do:
             send server, appendEntryMsg
@@ -103,9 +106,12 @@ defmodule Leader do
         # Monitor.debug(s, "append map is: #{inspect(s[:append_map])}")
         # Monitor.debug(s, "original message: #{inspect(originalMessage)}")
         s = State.append_map(s, originalMessage, Map.get(s[:append_map], originalMessage, 1) + 1)
+        # s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
+
         # check if commit index condition is right
         if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
         and !s[:commit_log][Enum.at(entries, 0)[:uid]] do
+          IO.puts "is it ever false #{Map.has_key?(s[:commit_log], Enum.at(entries, 0)[:uid])}"
           # Monitor.debug(s, "COMMITED BC append map is: #{s[:append_map][originalMessage]} reaches majority")
           for entry <- entries, do: send s[:databaseP], {:EXECUTE, entry[:cmd]}
           s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)

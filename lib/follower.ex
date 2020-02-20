@@ -56,10 +56,21 @@ defmodule Follower do
               next(s, resetTimer(timer))
             end
             next(s, resetTimer(timer))
+     
+          # log shorter, does not contain an entry at prevLogIndex
+          Log.getLogSize(s[:log]) < prevLogIndex ->
+            Monitor.debug(s, 1, "log shorter!")
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
+            next(s, resetTimer(timer))
 
           !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
-            Monitor.debug(s, "previous entry not matching")
-            Monitor.debug(s, "follower rcved entry #{inspect(Enum.at(entries, 0))} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
+            Monitor.debug(s, 1, "previous entry not matching will delete entries")
+            Monitor.debug(s, 1, "follower rcved entry #{inspect(Enum.at(entries, 0))} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
+            IO.puts "before is #{Log.getLogSize(s[:log])}"
+            IO.puts "is it less than 0 #{Log.getLogSize(s[:log]) - prevLogIndex + 1}"
+            IO.puts "prevIndex is #{prevLogIndex}"
+            s = State.log(s, Log.deleteNEntryFromLast(s[:log], Log.getLogSize(s[:log]) - prevLogIndex + 1))
+            IO.puts "after is #{Log.getLogSize(s[:log])}"
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
             next(s, resetTimer(timer))
 
@@ -146,8 +157,8 @@ defmodule Follower do
 
   defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do
     # Monitor.debug(s, "prev entry look at #{inspect(Enum.at(s[:log], prevLogIndex - 1))}")
-    (Log.getLogSize(s[:log]) >= prevLogIndex and
-     (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm))
+    # (Log.getLogSize(s[:log]) >= prevLogIndex and
+     (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm)
   end
 
   defp isCurrentEntryMatch(s, curEntryIndex, curEntryTerm, curEntryUid) do
