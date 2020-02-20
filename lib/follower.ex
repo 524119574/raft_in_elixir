@@ -43,12 +43,14 @@ defmodule Follower do
             # Monitor.debug(s, "received hearbeat from #{leaderId} whose commit index is #{leaderCommit}")
             # send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true})
             s = State.commit_index(s, if leaderCommit > s[:commit_index]
-                                      do min(leaderCommit, length(s[:log]))
+                                      do min(leaderCommit, Log.getLogSize(s[:log]))
                                       else s[:commit_index] end)
             # update last applied if received higher commit index
             if s[:commit_index] > s[:last_applied] do
               num_to_commit = s[:commit_index] - s[:last_applied]
-              for i <- 1..s[:commit_index] - s[:last_applied], do: send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] + i - 1)[:cmd]}
+              for i <- 1..s[:commit_index] - s[:last_applied] do
+                send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
+              end
               s = State.last_applied(s, s[:commit_index])
               Monitor.debug(s, "heartbeat increment last_applied follower last applied is #{s[:last_applied]}")
               next(s, resetTimer(timer))
@@ -67,20 +69,22 @@ defmodule Follower do
             if isCurrentEntryMatch(s, prevLogIndex + 1, Enum.at(entries, 0)[:term], Enum.at(entries, 0)[:uid]) do
               s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
               s = State.commit_index(s, if leaderCommit > s[:commit_index]
-                                        do min(leaderCommit, length(s[:log]))
+                                        do min(leaderCommit, Log.getLogSize(s[:log]))
                                         else s[:commit_index] end)
               send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), prevLogIndex + 1})
               # Monitor.debug(s, "current entry matches, didn't do anything")
               next(s, resetTimer(timer))
             end
 
-            s = State.log(s, Enum.concat(s[:log], (for entry <- entries, do: entry)))
+            s = State.log(
+              s, Enum.reduce(entries, s[:log],
+                             fn entry, log -> Log.appendNewEntry(log, entry) end))
             # s = State.log(s, Enum.slice(s[:log], 0..prevLogIndex) ++ entries)
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), prevLogIndex + 1})
             # Monitor.debug(s, "Log updated log length #{length(s[:log])} cur term: #{s[:curr_term]}")
             # update commit index if necessary
             s = State.commit_index(s, if leaderCommit > s[:commit_index]
-                                      do min(leaderCommit, length(s[:log]))
+                                      do min(leaderCommit, Log.getLogSize(s[:log]))
                                       else s[:commit_index] end)
             # Monitor.debug(s, "follower commit index is #{s[:commit_index]} rcved from leader is #{leaderCommit}")
 
@@ -88,11 +92,10 @@ defmodule Follower do
             if s[:commit_index] > s[:last_applied] do
               # IO.puts "cmt - apply is #{s[:commit_index] - s[:last_applied]}"
               num_to_commit = s[:commit_index] - s[:last_applied]
-              for i <- 1..s[:commit_index] - s[:last_applied], do: send s[:databaseP], {:EXECUTE, Enum.at(s[:log], s[:last_applied] + i - 1)[:cmd]}
+              for i <- 1..num_to_commit do
+                send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
+              end
               # TODO: ADD COMMIT_LOG
-              #############
-              # mmp = for i <- 1..s[:commit_index] - s[:last_applied], into: %{}, do: {Enum.at(s[:log], s[:last_applied] + i - 1)[:uid], true}
-              # IO.inspect(mmp)
               s = State.last_applied(s, s[:commit_index])
               # Monitor.debug(s, "follower last applied is #{s[:last_applied]}")
               next(s, resetTimer(timer))
@@ -148,16 +151,16 @@ defmodule Follower do
 
   defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do
     # Monitor.debug(s, "prev entry look at #{inspect(Enum.at(s[:log], prevLogIndex - 1))}")
-    (length(s[:log]) >= prevLogIndex and
-     (prevLogIndex == 0 or
-      Enum.at(s[:log], prevLogIndex - 1)[:term] == prevLogTerm))
+    (Log.getLogSize(s[:log]) >= prevLogIndex and
+     (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm))
   end
 
   defp isCurrentEntryMatch(s, curEntryIndex, curEntryTerm, curEntryUid) do
     # Monitor.debug(s, "current entry look at #{inspect(Enum.at(s[:log], prevLogIndex))}")
-    (length(s[:log]) >= curEntryIndex and
-    (Enum.at(s[:log], curEntryIndex - 1)[:term] == curEntryTerm) and 
-    (Enum.at(s[:log], curEntryIndex - 1)[:uid] == curEntryUid))
+    currentEntry = s[:log][curEntryIndex]
+    (Log.getLogSize(s[:log]) >= curEntryIndex and
+    (currentEntry[:term] == curEntryTerm) and
+    (currentEntry[:uid] == curEntryUid))
   end
 
 end

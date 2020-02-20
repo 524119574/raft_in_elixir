@@ -18,15 +18,15 @@ defmodule Leader do
     Process.send_after(self(), {:crash_timeout}, 2500)
 
     # commit uncommitted index in its log
-    if length(s[:log]) > s[:commit_index] do
+    if Log.getLogSize(s[:log]) > s[:commit_index] do
       IO.puts "Leader encounters previously uncommitted entry"
-      num_of_entries = length(s[:log]) - s[:commit_index]
+      num_of_entries = Log.getLogSize(s[:log]) - s[:commit_index]
       # NOTE: last arg client hard coded to self() bc don't know
-      append_msgs = Enum.map(1..num_of_entries, fn i -> 
+      append_msgs = Enum.map(1..num_of_entries, fn i ->
         {:appendEntry, s[:curr_term], s[:id],
-                      length(s[:log]) - i,              #prevLogIndex
-                      Enum.at(s[:log], - i - 1)[:term], #prevLogTerm
-                      [Enum.at(s[:log], -i)],
+                      Log.getPrevLogIndex(s[:log]) - i,                  #prevLogIndex
+                      s[:log][Log.getPrevLogIndex(s[:log]) - i][:term],  #prevLogTerm
+                      [s[:log][Log.getPrevLogIndex(s[:log]) + 1 - i]],
                       s[:commit_index],
                       self()} end)
       # reverse msgs to send in log entry order
@@ -34,7 +34,7 @@ defmodule Leader do
       # IO.inspect(append_msgs)
 
       # broadcast appendEntry
-      Enum.map(append_msgs, fn msg -> 
+      Enum.map(append_msgs, fn msg ->
         for server <- s[:servers], server != self(), do:
           send server, msg
         end)
@@ -73,9 +73,9 @@ defmodule Leader do
           # TODO: ASSUME LEN(ENTRIES) == 1
           prevLog = s[:log]
           # Add the client request to its own log.
-          s = State.log(s, Enum.concat(prevLog, [%{term: s[:curr_term], uid: uid, cmd: cmd}]))
+          s = State.log(s, Log.appendNewEntry(prevLog, %{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}))
           s = State.commit_log(s, uid, false)
-          Monitor.debug(s, "Leader log updated log length #{length(s[:log])}")
+          Monitor.debug(s, "Leader log updated log length #{Log.getLogSize(s[:log])}")
           appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
                             Log.getPrevLogIndex(prevLog),
                             Log.getPrevLogTerm(prevLog),
@@ -100,7 +100,8 @@ defmodule Leader do
         s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
 
         # RAISE ARITHMATIC ERROR
-        # Monitor.debug(s, "append map is: #{s[:append_map]}")
+        Monitor.debug(s, "append map is: #{inspect(s[:append_map])}")
+        Monitor.debug(s, "original message: #{inspect(originalMessage)}")
         s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
         # check if commit index condition is right
         if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
@@ -112,7 +113,7 @@ defmodule Leader do
           s = State.last_applied(s, s[:commit_index])
           # IO.inspect(s[:commit_log])
           IO.puts "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed by leader"
-          Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]} log length #{length(s[:log])}")
+          Monitor.debug(s, "Leader has committed a new entry, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
 
           # TODO: figure out client_reply format and send {:CLIENT_REPLY}
           send clientP, {:CLIENT_REPLY, %{leaderP: self()}}
@@ -133,9 +134,9 @@ defmodule Leader do
         new_next_index = s[:next_index][from] - 1
         s = State.next_index(s, from, new_next_index)
         new_append_entry_msg = {:appendEntry, s[:curr_term], s[:id],
-                          new_next_index - 1,                               #prevLogIndex
-                          Enum.at(s[:log], new_next_index - 1 - 1)[:term],  #prevLogTerm
-                          [Enum.at(s[:log], new_next_index - 1)],
+                          new_next_index - 1,                      # preLogIndex
+                          s[:log][new_next_index - 1][:term],      # preLogTerm
+                          [s[:log][new_next_index]],
                           s[:commit_index],
                           nil}
         send from, new_append_entry_msg
