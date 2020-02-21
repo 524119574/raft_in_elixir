@@ -22,7 +22,7 @@ defmodule Vote do
   end
 
   defp collectVotes(s, term) do
-    Monitor.debug(s, "inside collect vote!")
+    # Monitor.debug(s, "inside collect vote!")
     receive do
       {:voteTimeOut} ->
         Monitor.debug(s, "timeout... so sad....")
