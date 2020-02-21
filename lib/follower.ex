@@ -30,13 +30,11 @@ defmodule Follower do
           send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
           next(s, resetTimer(timer))
         end
-
         # Update current term and voted for if the term received is larger than self.
-        s =
-          cond do
-            term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
-            true -> s
-          end
+        s = cond do
+              term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
+              true -> s
+            end
 
         cond do
           # heartbeat

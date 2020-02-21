@@ -15,7 +15,7 @@ defmodule Leader do
     Process.send_after(self(), {:resendHeartBeat}, 50)
 
     # leader crash every 2000 ms
-    Process.send_after(self(), {:crash_timeout}, 2500)
+    Process.send_after(self(), {:crash_timeout}, 5000)
 
     # commit uncommitted index in its log
     if Log.getLogSize(s[:log]) > s[:commit_index] do
@@ -48,10 +48,9 @@ defmodule Leader do
 
     receive do
       { :crash_timeout } ->
-        Monitor.debug(s, 4, "crashed and will sleep for 2000 ms")
-        Process.sleep(2000)
+        Monitor.debug(s, 4, "crashed and will sleep for 1000 ms")
+        Process.sleep(1000)
         Monitor.debug(s, 4, "leader finished sleeping and restarted with log length #{Log.getLogSize(s[:log])}")
-        # IO.inspect(s[:log])
         next(s)
         # Monitor.debug(s, 4, "crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         # Process.sleep(30_000)
@@ -67,11 +66,10 @@ defmodule Leader do
         next(s)
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
-        # TODO: prevents broadcasting the same request twice (client sends cuz timeout), change into retries indefinitely
+        # prevents broadcasting the same request twice (client sends repetitively cuz timeout)
         if (!Map.has_key?(s[:commit_log], uid)) do
           Monitor.notify(s, { :CLIENT_REQUEST, s[:id] })
           # Monitor.debug(s, 2, "Leader received a request from client in term #{s[:curr_term]} cmd is #{inspect(cmd)} uid is #{inspect(uid)}")
-          # TODO: ASSUME LEN(ENTRIES) == 1
           prevLog = s[:log]
           # Add the client request to its own log.
           s = State.log(s, Log.appendNewEntry(prevLog, %{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}))
@@ -96,19 +94,19 @@ defmodule Leader do
       {:appendEntryResponse, term, true, originalMessage, from, matchIndex} ->
         {:appendEntry, term, leaderId, prevLogIndex,
          prevLogTerm, entries, leaderCommit} = originalMessage
-        # TODO: update match_index, include in msg; next_index might be INCORRECT
-        s = State.next_index(s, from, max(prevLogIndex + 2, s[:next_index][from]))
+
+        # update match_index and next_index
+        s = State.next_index(s, from, max(matchIndex + 1, s[:next_index][from]))
         s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
 
-        # # induction step
-        # if matchIndex < s[:next_index][from] do
-        #   # IO.puts "sent"
-        #   send from, {:appendEntry, s[:curr_term], s[:id],
-        #                     matchIndex,
-        #                     s[:log][matchIndex][:term],
-        #                     [s[:log][matchIndex + 1]],
-        #                     s[:commit_index]}
-        # end
+        # induction step if follower's log does not exactly match leader's yet
+        if matchIndex < s[:commit_index] and s[:next_index][from] <= Log.getLogSize(s[:log]) do
+          send from, {:appendEntry, s[:curr_term], s[:id],
+                            s[:next_index][from] - 1,                   #prevLogIndex
+                            s[:log][s[:next_index][from] - 1][:term],   #prevLogTerm
+                            [s[:log][s[:next_index][from]]],
+                            s[:commit_index]}
+        end
 
         # MIGHT RAISE ARITHMATIC ERROR
         # Monitor.debug(s, 2, "append map is: #{inspect(s[:append_map])}")
@@ -118,7 +116,7 @@ defmodule Leader do
 
         # check if commit index condition is right
         if s[:append_map][originalMessage] == s[:majority] and leaderCommit <= s[:commit_index]
-        and entries != nil and prevLogIndex + 1 > s[:last_applied] do
+        and Enum.at(entries, 0) != nil and entries != nil and prevLogIndex + 1 > s[:last_applied] do
         # and !s[:commit_log][Enum.at(entries, 0)[:uid]] and entries != nil do
           for entry <- entries, do: send s[:databaseP], {:EXECUTE, entry[:cmd]}
           s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)

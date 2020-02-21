@@ -59,9 +59,9 @@ defp more_parameters(config) do
 
     crash_servers: %{		        # %{ server_num => crash_after_time, ...}
       1 => 15_000,
-      2 => 2_000,
+      2 => 15_000,
       3 => 15_000,
-      4 => 5_000,
+      4 => 15_000,
       5 => 15_000
     },
   }
