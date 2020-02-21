@@ -17,6 +17,15 @@ defmodule Log do
     Map.put(log, :log_length, log[:log_length] + 1)
   end
 
+  def appendNewEntry(log, entry, index, term) do
+    # check if entry in existing log matches, if so no need to change anything
+    if index <= Log.getLogSize(log) and log[index][:term] == term do
+      log
+    else
+      appendNewEntry(log, entry)
+    end
+  end
+
   def getLogSize(log) do
     log[:log_length]
   end

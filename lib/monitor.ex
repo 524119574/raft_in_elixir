@@ -12,7 +12,7 @@ end # debug
 
 def debug(s, level, string) do
   if level >= s.config.debug_level do
-    IO.puts "server #{s.id} #{string}"
+    IO.puts "server #{s.id} in term #{Map.get(s, :curr_term, 0)} #{string}"
   end
 end # debug
 

@@ -1,46 +1,44 @@
 defmodule Candidate do
   def start(s) do
+    Monitor.debug(s, 4, "becomes candidate with log length #{Log.getLogSize(s[:log])}")
     s = State.role(s, :CANDIDATE)
     s = State.curr_term(s, s[:curr_term] + 1)
     s = State.voted_for(s, self())
     s = State.votes(s, 1)
-    votePId = spawn(Vote, :start, [s, s[:curr_term]])
-    next(s, votePId)
+    spawn(Vote, :start, [s, s[:curr_term]])
+    next(s)
   end
 
-  defp next(s, votePId) do
+  defp next(s) do
     # Monitor.debug(s, " is collecting messages as Candidate")
     receive do
       {:crash_timeout} ->
-        Monitor.debug(s, "crashed")
+        Monitor.debug(s, 4, "crashed")
         Process.sleep(15_000)
 
-      {:Elected, term} ->
-        Monitor.debug(s, "received elected as leader msg")
+      {:elected, term} ->
+        Monitor.debug(s, 1, "received elected as leader msg")
         if (term == s[:curr_term]) do
-          # Process.exit(votePId, :kill)
           Leader.start(s)
         end
-        next(s, votePId)
+        next(s)
 
-      {:NewElection, term} ->
+      {:newElection, term} ->
+        Monitor.debug(s, 1, "received new election msg")
         if (term == s[:curr_term]) do
-          # Process.exit(votePId, :kill)
           Candidate.start(s)
         end
-        next(s, votePId)
+        next(s)
 
       {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
-        Monitor.debug(s, "is candidate and append entry (heartbeat) received from server #{leaderId}")
+        # Monitor.debug(s, "is candidate and append entry received from server #{leaderId}")
         if term >= s[:curr_term] do
-          Monitor.debug(s, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leaderId}")
+          Monitor.debug(s, 4, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leaderId} with log length #{Log.getLogSize(s[:log])}")
           s = State.curr_term(s, term)
-          # TODO: append entry response format not sure if correct
           send Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()}
-          # Process.exit(votePId, :kill)
           Follower.start(s)
         end
-        next(s, votePId)
+        next(s)
     end
   end #defp
 

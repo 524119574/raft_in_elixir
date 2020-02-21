@@ -1,7 +1,7 @@
 defmodule Leader do
 
   def start(s) do
-    Monitor.debug(s, "I am the leader for term #{s[:curr_term]}")
+    Monitor.debug(s, 4, "I am the leader for term #{s[:curr_term]} with log length #{Log.getLogSize(s[:log])}")
     s = State.role(s, :LEADER)
     # Initialize next_index and match_index for other servers
     next_index = for server <- s[:servers], server != self(), into: %{}, do: {server, s[:commit_index] + 1}
@@ -15,11 +15,11 @@ defmodule Leader do
     Process.send_after(self(), {:resendHeartBeat}, 50)
 
     # leader crash every 2000 ms
-    Process.send_after(self(), {:crash_timeout}, 2000)
+    Process.send_after(self(), {:crash_timeout}, 2500)
 
     # commit uncommitted index in its log
     if Log.getLogSize(s[:log]) > s[:commit_index] do
-      IO.puts "Leader encounters previously uncommitted entry"
+      Monitor.debug(s, 4, "Leader encounters previously uncommitted entry")
       num_of_entries = Log.getLogSize(s[:log]) - s[:commit_index]
       append_msgs = Enum.map(1..num_of_entries, fn i ->
         {:appendEntry, s[:curr_term], s[:id],
@@ -29,7 +29,6 @@ defmodule Leader do
                       s[:commit_index]} end)
       # reverse msgs to send in log entry order
       append_msgs = Enum.reverse(append_msgs)
-      # IO.inspect(append_msgs)
 
       # broadcast appendEntry
       Enum.map(append_msgs, fn msg ->
@@ -39,7 +38,7 @@ defmodule Leader do
       # put messages into append_map
       s = Enum.reduce(append_msgs, s, fn msg, s -> State.append_map(s, msg, 1) end)
       IO.inspect(s[:append_map])
-      IO.puts "think sent msgs to append prev"
+      Monitor.debug(s, 4, "leader sends uncommitted log entry to followers")
       next(s)
     end
     next(s)
@@ -49,12 +48,12 @@ defmodule Leader do
 
     receive do
       { :crash_timeout } ->
-        Monitor.debug(s, "crashed and will sleep for 2000 ms")
+        Monitor.debug(s, 4, "crashed and will sleep for 2000 ms")
         Process.sleep(2000)
-        Monitor.debug(s, "leader finished sleeping and restarted")
+        Monitor.debug(s, 4, "leader finished sleeping and restarted with log length #{Log.getLogSize(s[:log])}")
         # IO.inspect(s[:log])
         next(s)
-        # Monitor.debug(s, "crashed")
+        # Monitor.debug(s, 4, "crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         # Process.sleep(30_000)
 
       {:resendHeartBeat} ->
@@ -71,13 +70,13 @@ defmodule Leader do
         # TODO: prevents broadcasting the same request twice (client sends cuz timeout), change into retries indefinitely
         if (!Map.has_key?(s[:commit_log], uid)) do
           Monitor.notify(s, { :CLIENT_REQUEST, s[:id] })
-          # Monitor.debug(s, "Leader received a request from client in term #{s[:curr_term]} cmd is #{inspect(cmd)} uid is #{inspect(uid)}")
+          # Monitor.debug(s, 2, "Leader received a request from client in term #{s[:curr_term]} cmd is #{inspect(cmd)} uid is #{inspect(uid)}")
           # TODO: ASSUME LEN(ENTRIES) == 1
           prevLog = s[:log]
           # Add the client request to its own log.
           s = State.log(s, Log.appendNewEntry(prevLog, %{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}))
           s = State.commit_log(s, uid, false)
-          # Monitor.debug(s, "Leader log updated log length #{Log.getLogSize(s[:log])}")
+          # Monitor.debug(s, 2, "Leader log updated log length #{Log.getLogSize(s[:log])}")
           appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
                             Log.getPrevLogIndex(prevLog),
                             Log.getPrevLogTerm(prevLog),
@@ -101,23 +100,32 @@ defmodule Leader do
         s = State.next_index(s, from, max(prevLogIndex + 2, s[:next_index][from]))
         s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
 
-        # RAISE ARITHMATIC ERROR
-        # Monitor.debug(s, "append map is: #{inspect(s[:append_map])}")
-        # Monitor.debug(s, "original message: #{inspect(originalMessage)}")
+        # # induction step
+        # if matchIndex < s[:next_index][from] do
+        #   # IO.puts "sent"
+        #   send from, {:appendEntry, s[:curr_term], s[:id],
+        #                     matchIndex,
+        #                     s[:log][matchIndex][:term],
+        #                     [s[:log][matchIndex + 1]],
+        #                     s[:commit_index]}
+        # end
+
+        # MIGHT RAISE ARITHMATIC ERROR
+        # Monitor.debug(s, 2, "append map is: #{inspect(s[:append_map])}")
+        # Monitor.debug(s, 2, "original message: #{inspect(originalMessage)}")
         s = State.append_map(s, originalMessage, Map.get(s[:append_map], originalMessage, 1) + 1)
         # s = State.append_map(s, originalMessage, s[:append_map][originalMessage] + 1)
 
         # check if commit index condition is right
-        if s[:append_map][originalMessage] >= s[:majority] and leaderCommit <= s[:commit_index]
-        and !s[:commit_log][Enum.at(entries, 0)[:uid]] do
-          # IO.puts "is it ever false #{Map.has_key?(s[:commit_log], Enum.at(entries, 0)[:uid])}"
-          # Monitor.debug(s, "COMMITED BC append map is: #{s[:append_map][originalMessage]} reaches majority")
+        if s[:append_map][originalMessage] == s[:majority] and leaderCommit <= s[:commit_index]
+        and entries != nil and prevLogIndex + 1 > s[:last_applied] do
+        # and !s[:commit_log][Enum.at(entries, 0)[:uid]] and entries != nil do
           for entry <- entries, do: send s[:databaseP], {:EXECUTE, entry[:cmd]}
           s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
           s = State.commit_index(s, s[:commit_index] + length(entries))
           s = State.last_applied(s, s[:commit_index])
           # IO.inspect(s[:commit_log])
-          # Monitor.debug(s, "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
+          # Monitor.debug(s, 2, "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
           send Enum.at(entries, 0)[:clientP], {:CLIENT_REPLY, %{leaderP: self()}}
           next(s)
         end
@@ -126,12 +134,12 @@ defmodule Leader do
       {:appendEntryFailedResponse, term, false, from } ->
         # leader is out of date
         if term > s[:curr_term] do
-          Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
+          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.getLogSize(s[:log])}")
           s = State.curr_term(s, term)
           Follower.start(s)
         end
 
-        # Monitor.debug(s, "some server failed to append entry due to log inconsistency")
+        # Monitor.debug(s, 2, "some follower server failed to append entry due to log inconsistency")
         # decrement next_index by 1
         new_next_index = s[:next_index][from] - 1
         s = State.next_index(s, from, new_next_index)
@@ -150,21 +158,18 @@ defmodule Leader do
 
         if term > s[:curr_term] and up_to_date do
           s = State.curr_term(s, term)
-          Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]}")
+          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.getLogSize(s[:log])}")
           Follower.start(s)
-        else
-          send votePid, {:requestVoteResponse, s[:curr_term], false}
-          next(s)
         end
+        send votePid, {:requestVoteResponse, s[:curr_term], false}
+        next(s)
 
       # step down when discovered server with highter term
       {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
         if term > s[:curr_term] do
-          Monitor.debug(s, "converts to follower from leader in term #{s[:curr_term]} log length is #{Log.getLogSize(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from leader in term #{s[:curr_term]} with log length #{Log.getLogSize(s[:log])}")
           s = State.curr_term(s, term)
-          # TODO: append entry response format not sure if correct, same problem in candidate, do we need this?
           send Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()}
-          # NEED TO FORWARD??
           Follower.start(s)
         end
         next(s)

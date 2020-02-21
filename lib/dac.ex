@@ -43,11 +43,11 @@ end
 
 defp more_parameters(config) do
   Map.merge config, %{
-    debug_level:     0,         # debug level 0
+    debug_level:     3,         # debug level 0
     print_after:     2_000,     # print transaction log summary every print_after millisecs
 
-    client_requests: 1000,    	    # max requests each client will make # ori1
-    client_sleep:    5,        	# time to sleep before sending next request
+    client_requests: 500,    	    # max requests each client will make # ori1
+    client_sleep:    10,        	# time to sleep before sending next request
     client_stop:     80_000,  	# time after which client should stop sending requests #ori 60_000
     client_timeout:  500,       # timeout for expecting reply to client request # original 500
 
@@ -59,9 +59,9 @@ defp more_parameters(config) do
 
     crash_servers: %{		        # %{ server_num => crash_after_time, ...}
       1 => 15_000,
-      2 => 15_000,
-      3 => 4_000,
-      4 => 6_000,
+      2 => 2_000,
+      3 => 15_000,
+      4 => 5_000,
       5 => 15_000
     },
   }
