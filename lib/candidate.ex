@@ -2,6 +2,7 @@ defmodule Candidate do
   def start(s) do
     Monitor.debug(s, 4, "becomes candidate with log length #{Log.getLogSize(s[:log])}")
     s = State.role(s, :CANDIDATE)
+    s = State.leader_id(s, nil)
     s = State.curr_term(s, s[:curr_term] + 1)
     s = State.voted_for(s, self())
     s = State.votes(s, 1)
@@ -13,18 +14,18 @@ defmodule Candidate do
     # Monitor.debug(s, " is collecting messages as Candidate")
     receive do
       {:crash_timeout} ->
-        Monitor.debug(s, 4, "crashed")
+        Monitor.debug(s, 4, "candidate crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         Process.sleep(15_000)
 
       {:elected, term} ->
-        Monitor.debug(s, 1, "received elected as leader msg")
+        Monitor.debug(s, 1, "candidate received elected as leader msg")
         if (term == s[:curr_term]) do
           Leader.start(s)
         end
         next(s)
 
       {:newElection, term} ->
-        Monitor.debug(s, 1, "received new election msg")
+        Monitor.debug(s, 1, "candidate received new election msg")
         if (term == s[:curr_term]) do
           Candidate.start(s)
         end

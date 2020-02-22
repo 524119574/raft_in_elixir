@@ -4,48 +4,49 @@ defmodule Follower do
     s = State.role(s, :FOLLOWER)
     s = State.voted_for(s, nil)
     s = State.votes(s, 0)
-    # TODO: random 100!
-    timer = Process.send_after(self(), {:timeout}, 100 + DAC.random(500))
+    timer = Process.send_after(self(), {:timeout}, s.config.election_timeout + DAC.random(s.config.election_timeout))
     next(s, timer)
   end
 
   defp next(s, timer) do
     receive do
-      # TODO: not sure if timer related things are needed
       { :crash_timeout } ->
-        Process.cancel_timer(timer)
-        Monitor.debug(s, 4, "crashed and will sleep for 1000 ms")
-        Process.sleep(1000)
-        timer = Process.send_after(self(), {:timeout}, 100 + DAC.random(500))
-        Monitor.debug(s, 4, "finished sleeping and restarted")
-        # IO.inspect(s[:log])
-        next(s, resetTimer(timer))
+        # Monitor.debug(s, 4, "crashed and will sleep for 1000 ms")
+        # Process.sleep(1000)
+        # Monitor.debug(s, 4, "follower finished sleeping and restarted")
+        # next(s, resetTimer(timer, s.config.election_timeout))
+        Monitor.debug(s, 4, "follower crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
+        Process.sleep(30_000)
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
        entries, leaderCommit} = m ->
-
         # leader who sent the message is out-of-date
         if term < s[:curr_term] do
           send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
-          next(s, resetTimer(timer))
+          next(s, resetTimer(timer, s.config.election_timeout))
         end
         # Update current term and voted for if the term received is larger than self.
         s = cond do
               term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
               true -> s
             end
+        # save the leader id in current term
+        s = cond do
+          leaderId != s[:leaderId] or s[:leaderId] == nil -> State.leader_id(s, leaderId)
+          true -> s
+        end
 
         cond do
           # heartbeat
           entries == nil ->
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
      
           # log shorter, does not contain an entry at prevLogIndex
           Log.getLogSize(s[:log]) < prevLogIndex ->
             # Monitor.debug(s, 2, "log shorter!")
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
 
           !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
             # Monitor.debug(s, 2, "previous entry not matching will delete entries")
@@ -54,7 +55,7 @@ defmodule Follower do
             s = State.log(s, Log.deleteNEntryFromLast(s[:log], Log.getLogSize(s[:log]) - prevLogIndex + 1))
             # Monitor.debug(s, 2, "after deleting log length is #{Log.getLogSize(s[:log])})"
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
 
           true ->
             # update log
@@ -78,12 +79,12 @@ defmodule Follower do
               for i <- 1..num_to_execute do
                 send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
               end
-              s = Enum.reduce(1..num_to_execute, s, fn i, s -> State.commit_log(s, s[:log][s[:last_applied] + i][:uid], true) end)
+              # s = Enum.reduce(1..num_to_execute, s, fn i, s -> State.commit_log(s, s[:log][s[:last_applied] + i][:uid], true) end)
               s = State.last_applied(s, s[:commit_index])
               # Monitor.debug(s, 2, "follower last applied is #{s[:last_applied]}")
-              next(s, resetTimer(timer))
+              next(s, resetTimer(timer, s.config.election_timeout))
             end
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
         end
 
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
@@ -100,21 +101,25 @@ defmodule Follower do
             s = State.voted_for(s, candidateId)
             # Monitor.debug(s, 1, "term bigger: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
           term == s[:curr_term] and up_to_date and (s[:voted_for] == nil or s[:voted_for] == candidateId) ->
             s = State.voted_for(s, candidateId)
             # Monitor.debug(s, 1, "term equal: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
           true ->
             send votePid, {:requestVoteResponse, s[:curr_term], false}
-            next(s, resetTimer(timer))
+            next(s, resetTimer(timer, s.config.election_timeout))
         end
 
-      # TODO: forward client request to current leader
-      # {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
-      #   # how do follower know the address of leader?
-      #   next(s, timer)
+      {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
+        if s[:leaderId] != nil do 
+          Monitor.debug(s, 2, "follower forwarded client request to leader #{s[:leaderId]}")
+          send(Enum.at(s[:servers], s[:leaderId] - 1), {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}})
+          next(s, resetTimer(timer, s.config.election_timeout))
+        end
+        Monitor.debug(s, 2, "follower received client request but do not know leader")
+        next(s, resetTimer(timer, s.config.election_timeout))
 
       {:timeout} ->
         Monitor.debug(s, 4, "converts to candidate from follower in term #{s[:curr_term]} (+1)")
@@ -123,9 +128,9 @@ defmodule Follower do
     end
   end
 
-  defp resetTimer(timer) do
+  defp resetTimer(timer, timeout) do
     Process.cancel_timer(timer)
-    Process.send_after(self(), {:timeout}, (100 + DAC.random(500)))
+    Process.send_after(self(), {:timeout}, timeout + DAC.random(timeout))
   end
 
   defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do

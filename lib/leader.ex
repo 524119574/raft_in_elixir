@@ -3,6 +3,7 @@ defmodule Leader do
   def start(s) do
     Monitor.debug(s, 4, "I am the leader for term #{s[:curr_term]} with log length #{Log.getLogSize(s[:log])}")
     s = State.role(s, :LEADER)
+    s = State.leader_id(s, s[:id])
     # Initialize next_index and match_index for other servers
     next_index = for server <- s[:servers], server != self(), into: %{}, do: {server, s[:commit_index] + 1}
     match_index = for server <- s[:servers], server != self(), into: %{}, do: {server, 0}
@@ -15,11 +16,11 @@ defmodule Leader do
     Process.send_after(self(), {:resendHeartBeat}, 50)
 
     # leader crash every 2000 ms
-    Process.send_after(self(), {:crash_timeout}, 5000)
+    Process.send_after(self(), {:crash_timeout}, 4000)
 
     # commit uncommitted index in its log
     if Log.getLogSize(s[:log]) > s[:commit_index] do
-      Monitor.debug(s, 4, "Leader encounters previously uncommitted entry")
+      Monitor.debug(s, 3, "Leader encounters previously uncommitted entry")
       num_of_entries = Log.getLogSize(s[:log]) - s[:commit_index]
       append_msgs = Enum.map(1..num_of_entries, fn i ->
         {:appendEntry, s[:curr_term], s[:id],
@@ -37,8 +38,8 @@ defmodule Leader do
         end)
       # put messages into append_map
       s = Enum.reduce(append_msgs, s, fn msg, s -> State.append_map(s, msg, 1) end)
-      IO.inspect(s[:append_map])
-      Monitor.debug(s, 4, "leader sends uncommitted log entry to followers")
+      Monitor.debug(s, 2, inspect(s[:append_map]))
+      Monitor.debug(s, 3, "leader sends uncommitted log entry to followers")
       next(s)
     end
     next(s)
@@ -48,11 +49,11 @@ defmodule Leader do
 
     receive do
       { :crash_timeout } ->
-        Monitor.debug(s, 4, "crashed and will sleep for 1000 ms")
-        Process.sleep(1000)
+        Monitor.debug(s, 4, "leader crashed and will sleep for 800 ms")
+        Process.sleep(800)
         Monitor.debug(s, 4, "leader finished sleeping and restarted with log length #{Log.getLogSize(s[:log])}")
         next(s)
-        # Monitor.debug(s, 4, "crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
+        # Monitor.debug(s, 4, "leader crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         # Process.sleep(30_000)
 
       {:resendHeartBeat} ->
@@ -119,10 +120,9 @@ defmodule Leader do
         and Enum.at(entries, 0) != nil and entries != nil and prevLogIndex + 1 > s[:last_applied] do
         # and !s[:commit_log][Enum.at(entries, 0)[:uid]] and entries != nil do
           for entry <- entries, do: send s[:databaseP], {:EXECUTE, entry[:cmd]}
-          s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
+          # s = State.commit_log(s, Enum.at(entries, 0)[:uid], true)
           s = State.commit_index(s, s[:commit_index] + length(entries))
           s = State.last_applied(s, s[:commit_index])
-          # IO.inspect(s[:commit_log])
           # Monitor.debug(s, 2, "#{inspect(Enum.at(entries, 0)[:cmd])} replicated on a majority of servers and executed, leader commit_index is #{s[:commit_index]} log length #{Log.getLogSize(s[:log])}")
           send Enum.at(entries, 0)[:clientP], {:CLIENT_REPLY, %{leaderP: self()}}
           next(s)
