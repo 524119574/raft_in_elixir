@@ -32,7 +32,6 @@ def initialise(config, server_id, servers, databaseP) do
     match_index:  Map.new,
 
     # add additional state variables of interest
-    # TODO: add follower forward client requsts to current leader
     leaderId: nil,
     append_map: Map.new,
     commit_log: Map.new,

@@ -10,13 +10,16 @@ defmodule Follower do
 
   defp next(s, timer) do
     receive do
-      { :crash_timeout } ->
-        # Monitor.debug(s, 4, "crashed and will sleep for 1000 ms")
-        # Process.sleep(1000)
-        # Monitor.debug(s, 4, "follower finished sleeping and restarted")
-        # next(s, resetTimer(timer, s.config.election_timeout))
+      {:crash_timeout} ->
         Monitor.debug(s, 4, "follower crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         Process.sleep(30_000)
+
+      {:crash_and_restart} ->
+        Process.cancel_timer(timer)
+        Monitor.debug(s, 4, "follower crashed and will sleep for 1000 ms")
+        Process.sleep(1000)
+        Monitor.debug(s, 4, "follower finished sleeping and restarted")
+        next(s, resetTimer(timer, s.config.election_timeout))
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
