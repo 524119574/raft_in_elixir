@@ -32,7 +32,9 @@ def initialise(config, server_id, servers, databaseP) do
     match_index:  Map.new,
 
     # add additional state variables of interest
+    leaderId: nil,
     append_map: Map.new,
+    commit_log: Map.new,
   }
 end # initialise
 
@@ -60,5 +62,11 @@ def log(s, v), do: Map.put(s, :log, v)
 def append_map(s, v), do: Map.put(s, :append_map, v)
 
 def append_map(s, i, v), do: Map.put(s, :append_map, Map.put(s.append_map, i, v))
+
+def commit_log(s, v), do: Map.put(s, :commit_log, v)
+
+def commit_log(s, i, v), do: Map.put(s, :commit_log, Map.put(s.commit_log, i, v))
+
+def leader_id(s, v), do: Map.put(s, :leaderId, v)
 
 end # State
