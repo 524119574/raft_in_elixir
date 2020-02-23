@@ -70,7 +70,7 @@ def next(state) do
     done = Map.get(state.updates, db, 0)
 
     if seqnum != done + 1, do:
-       Monitor.halt "  ** error db #{db}: seq #{seqnum} expecting #{done+1}"
+       Monitor.halt "  ** error db #{db}: seq #{seqnum} expecting #{done + 1}"
 
     moves =
       case Map.get(state.moves, seqnum) do
@@ -79,8 +79,8 @@ def next(state) do
 
       t -> # already logged - check command
         if amount != t.amount or from != t.from or to != t.to, do:
-	  Monitor.halt " ** error db #{db}.#{done} [#{amount},#{from},#{to}] " <>
-            "= log #{done}/#{map_size(state.moves)} [#{t.amount},#{t.from},#{t.to}]"
+	  Monitor.halt " ** error db #{db}.#{done} [#{amount}, #{from}, #{to}] " <>
+            "= log #{done}/#{map_size(state.moves)} [#{t.amount}, #{t.from}, #{t.to}]"
         # IO.inspect(state.moves)
         state.moves
       end # case
