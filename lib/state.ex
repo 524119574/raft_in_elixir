@@ -13,7 +13,7 @@ def initialise(config, server_id, servers, databaseP) do
     id:	          server_id,  # server's id (simple int)
     servers:      servers,    # list of process id's of servers
     databaseP:    databaseP,  # process id of local database
-    majority:     div(length(servers) + 1, 2),
+    majority:     ceil((length(servers) + 1) / 2),
     votes:        0,          # count of votes incl. self
 
     # -- various process id's - omitted
@@ -33,8 +33,6 @@ def initialise(config, server_id, servers, databaseP) do
 
     # add additional state variables of interest
     leaderId: nil,
-    append_map: Map.new,
-    commit_log: Map.new,
   }
 end # initialise
 

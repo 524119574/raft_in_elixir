@@ -9,12 +9,16 @@ defmodule Follower do
   end
 
   defp next(s, timer) do
+
     receive do
+
       {:crash_timeout} ->
+
         Monitor.debug(s, 4, "follower crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
         Process.sleep(30_000)
 
       {:crash_and_restart} ->
+
         Process.cancel_timer(timer)
         Monitor.debug(s, 4, "follower crashed and will sleep for 1000 ms")
         Process.sleep(1000)
@@ -23,71 +27,68 @@ defmodule Follower do
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
-       entries, leaderCommit} = m ->
-        # leader who sent the message is out-of-date
-        if term < s[:curr_term] do
-          send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
-          next(s, resetTimer(timer, s.config.election_timeout))
-        end
+       entries, leaderCommit} ->
+
         # Update current term and voted for if the term received is larger than self.
         s = cond do
               term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
               true -> s
             end
+
         # save the leader id in current term
         s = cond do
-          leaderId != s[:leaderId] or s[:leaderId] == nil -> State.leader_id(s, leaderId)
-          true -> s
-        end
+              leaderId != s[:leaderId] or s[:leaderId] == nil -> State.leader_id(s, leaderId)
+              true -> s
+            end
+
+        s = cond do
+              leaderCommit > s[:last_applied] ->
+
+                s = State.commit_index(s, leaderCommit)
+                commitEntries(s)
+
+              true -> s
+            end
 
         cond do
-          # heartbeat
-          entries == nil ->
+          term < s[:curr_term] ->
+
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, self(), nil})
             next(s, resetTimer(timer, s.config.election_timeout))
-     
-          # log shorter, does not contain an entry at prevLogIndex
-          Log.getLogSize(s[:log]) < prevLogIndex ->
-            # Monitor.debug(s, 2, "log shorter!")
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
+
+          entries == nil -> # heartbeat
+
             next(s, resetTimer(timer, s.config.election_timeout))
 
           !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
-            # Monitor.debug(s, 2, "previous entry not matching will delete entries")
-            # Monitor.debug(s, 2, "follower rcved entry #{inspect(Enum.at(entries, 0))} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
+            # Monitor.debug(s, 2, "follower rcved entry #{inspect(entries)} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
             # Monitor.debug(s, 2, "before deleting log length is #{Log.getLogSize(s[:log])})"
-            s = State.log(s, Log.deleteNEntryFromLast(s[:log], Log.getLogSize(s[:log]) - prevLogIndex + 1))
+
+            # The max also handle the case where the log is shorter.
+            s = State.log(s, Log.deleteNEntryFromLast(s[:log], max(Log.getLogSize(s[:log]) - prevLogIndex + 1, 0)))
             # Monitor.debug(s, 2, "after deleting log length is #{Log.getLogSize(s[:log])})"
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()})
+            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, nil})
             next(s, resetTimer(timer, s.config.election_timeout))
 
           true ->
-            # update log
-            s = State.commit_log(s, Enum.at(entries, 0)[:uid], false)
+            # Remove all entries after the prevIndex but not including the prevIndex
+            s = State.log(s, Log.deleteNEntryFromLast(s[:log], Log.getLogSize(s[:log]) - prevLogIndex))
             s = State.log(
               s, Enum.reduce(entries, s[:log],
                              fn entry, log -> Log.appendNewEntry(log, entry, prevLogIndex + 1, entry[:term]) end))
-            send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], true, m, self(), prevLogIndex + 1})
             # Monitor.debug(s, 2, "Log updated log length #{length(s[:log])} cur term: #{s[:curr_term]}")
 
-            # update commit index if necessary
             s = State.commit_index(s, if leaderCommit > s[:commit_index]
                                       do min(leaderCommit, Log.getLogSize(s[:log]))
                                       else s[:commit_index] end)
-            # Monitor.debug(s, 2, "follower commit index is #{s[:commit_index]} rcved from leader is #{leaderCommit}")
 
-            # execute cmds and update last_applied if necessary
-            if s[:commit_index] > s[:last_applied] do
-              # Monitor.debug(s, 2, "cmt - apply is #{s[:commit_index] - s[:last_applied]}")
-              num_to_execute = s[:commit_index] - s[:last_applied]
-              for i <- 1..num_to_execute do
-                send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
-              end
-              # s = Enum.reduce(1..num_to_execute, s, fn i, s -> State.commit_log(s, s[:log][s[:last_applied] + i][:uid], true) end)
-              s = State.last_applied(s, s[:commit_index])
-              # Monitor.debug(s, 2, "follower last applied is #{s[:last_applied]}")
-              next(s, resetTimer(timer, s.config.election_timeout))
-            end
+            s = commitEntries(s)
+            send(Enum.at(s[:servers], leaderId - 1),
+                 {:appendEntryResponse, s[:curr_term], true, self(), Log.getPrevLogIndex(s[:log])})
+            Monitor.debug(s, "Updated log length #{Log.getLogSize(s[:log])}," <>
+              "last applied: #{s[:last_applied]} #{inspect(s[:log][s[:last_applied]])} commit index: #{leaderCommit}")
             next(s, resetTimer(timer, s.config.election_timeout))
+
         end
 
       {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
@@ -116,18 +117,21 @@ defmodule Follower do
         end
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
-        if s[:leaderId] != nil do 
+
+        if s[:leaderId] != nil do
           Monitor.debug(s, 2, "follower forwarded client request to leader #{s[:leaderId]}")
           send(Enum.at(s[:servers], s[:leaderId] - 1), {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}})
-          next(s, resetTimer(timer, s.config.election_timeout))
         end
+
         Monitor.debug(s, 2, "follower received client request but do not know leader")
         next(s, resetTimer(timer, s.config.election_timeout))
 
       {:timeout} ->
+
         Monitor.debug(s, 4, "converts to candidate from follower in term #{s[:curr_term]} (+1)")
         Process.cancel_timer(timer)
         Candidate.start(s)
+
     end
   end
 
@@ -140,5 +144,23 @@ defmodule Follower do
     # Monitor.debug(s, 2, "prev entry look at #{inspect(Enum.at(s[:log], prevLogIndex - 1))}")
     (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm)
   end
+
+  defp commitEntries(s) do
+    if s[:commit_index] > s[:last_applied] do
+      num_to_execute = s[:commit_index] - s[:last_applied]
+      Monitor.debug(s, "committing some log: #{inspect(Log.getEntriesBetween(s[:log], s[:last_applied] + 1, s[:commit_index]))}")
+      for i <- 1..num_to_execute do
+        send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
+      end
+      s = State.last_applied(s, s[:commit_index])
+      Monitor.debug(s, "committed some log: " <>
+      "log length #{Log.getLogSize(s[:log])}, " <>
+      "last applied == commitIndex: #{s[:last_applied]}")
+      s
+    else
+      s
+    end
+  end
+
 
 end

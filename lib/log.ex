@@ -54,10 +54,23 @@ defmodule Log do
       IO.puts "The entries to be delete is #{numOfEntriesToDelete} while the" <>
       "log size is #{Log.getLogSize(log)}"
     end
-    prevIndex = Log.getPrevLogIndex(log)
-    length = Log.getLogSize(log)
-    log = Enum.reduce(0..numOfEntriesToDelete - 1, log, fn diff, log -> Map.delete(log, prevIndex - diff) end)
-    Map.put(log, :log_length, length - numOfEntriesToDelete)
+    if (numOfEntriesToDelete == 0) do
+      log
+    else
+      prevIndex = Log.getPrevLogIndex(log)
+      length = Log.getLogSize(log)
+      log = Enum.reduce(0..numOfEntriesToDelete - 1, log, fn diff, log -> Map.delete(log, prevIndex - diff) end)
+      Map.put(log, :log_length, length - numOfEntriesToDelete)
+    end
   end
 
+  def getEntriesStartingFrom(log, start_index) do
+    Log.getEntriesBetween(log, start_index, Log.getPrevLogIndex(log))
+  end
+
+  def getEntriesBetween(log, start_index, end_index) do
+    for i <- start_index..end_index do
+      log[i]
+    end
+  end
 end
