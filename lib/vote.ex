@@ -5,7 +5,7 @@ defmodule Vote do
     # Note that this is a new process, so self() and selfP is different
     for server <- s[:servers], server != s[:selfP], do:
       # We added a vote pid(self) so that people know how to send the message back
-      send server, {:requestVote, self(), term, s[:id], Log.getPrevLogIndex(s[:log]), Log.getPrevLogTerm(s[:log])}
+      send server, {:requestVote, self(), term, s[:id], Log.get_prev_log_index(s[:log]), Log.get_prev_log_term(s[:log])}
     # sets timeout for collecting votes, becomes leader only if received enough votes during this time period
     Process.send_after(self(), {:voteTimeOut}, s.config.election_timeout + DAC.random(s.config.election_timeout))
     collectVotes(s, term)

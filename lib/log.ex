@@ -12,65 +12,68 @@ defmodule Log do
     # }
   end
 
-  def appendNewEntry(log, entry) do
-    log = Map.put(log, Log.getNextAvailableIndex(log), entry)
+  def append_new_entry(log, entry) do
+    log = Map.put(log, Log.get_next_available_index(log), entry)
     Map.put(log, :log_length, log[:log_length] + 1)
   end
 
-  def appendNewEntry(log, entry, index, term) do
+  def append_new_entry(log, entry, index, term) do
     # check if entry in existing log matches, if so no need to change anything
-    if index <= Log.getLogSize(log) and log[index][:term] == term do
+    if index <= Log.get_log_size(log) and log[index][:term] == term do
       log
     else
-      appendNewEntry(log, entry)
+      append_new_entry(log, entry)
     end
   end
 
-  def getLogSize(log) do
+  def get_log_size(log) do
     log[:log_length]
   end
 
-  def getNextAvailableIndex(log) do
+  def get_next_available_index(log) do
     log[:log_length] + 1
   end
 
   # the log index start from 1,
   # when the log is empty initially, the prev log index is 0.
-  def getPrevLogIndex(log) do
+  def get_prev_log_index(log) do
     log[:log_length]
   end
 
   # When the log is empty initially we need to return 0.
-  def getPrevLogTerm(log) do
-    if Log.getLogSize(log) == 0 do
+  def get_prev_log_term(log) do
+    if Log.get_log_size(log) == 0 do
       0
     else
-      log[Log.getPrevLogIndex(log)][:term]
+      log[Log.get_prev_log_index(log)][:term]
     end
   end
 
-  def deleteNEntryFromLast(log, numOfEntriesToDelete) do
-    if Log.getLogSize(log) < numOfEntriesToDelete do
-      IO.puts "The entries to be delete is #{numOfEntriesToDelete} while the" <>
-      "log size is #{Log.getLogSize(log)}"
+  def delete_n_entries_from_last(log, num_of_entries_to_delete) do
+    if Log.get_log_size(log) < num_of_entries_to_delete do
+      IO.puts "The entries to be delete is #{num_of_entries_to_delete} while the" <>
+      "log size is #{Log.get_log_size(log)}"
     end
-    if (numOfEntriesToDelete == 0) do
+    if (num_of_entries_to_delete == 0) do
       log
     else
-      prevIndex = Log.getPrevLogIndex(log)
-      length = Log.getLogSize(log)
-      log = Enum.reduce(0..numOfEntriesToDelete - 1, log, fn diff, log -> Map.delete(log, prevIndex - diff) end)
-      Map.put(log, :log_length, length - numOfEntriesToDelete)
+      prev_index = Log.get_prev_log_index(log)
+      length = Log.get_log_size(log)
+      log = Enum.reduce(0..num_of_entries_to_delete - 1, log,
+                        fn diff, log -> Map.delete(log, prev_index - diff) end)
+      Map.put(log, :log_length, length - num_of_entries_to_delete)
     end
   end
 
-  def getEntriesStartingFrom(log, start_index) do
-    Log.getEntriesBetween(log, start_index, Log.getPrevLogIndex(log))
-  end
 
-  def getEntriesBetween(log, start_index, end_index) do
+
+  def get_entries_between(log, start_index, end_index) do
     for i <- start_index..end_index do
       log[i]
     end
+  end
+
+  def get_entries_starting_from(log, start_index) do
+    Log.get_entries_between(log, start_index, Log.get_prev_log_index(log))
   end
 end

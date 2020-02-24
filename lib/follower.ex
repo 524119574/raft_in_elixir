@@ -1,10 +1,11 @@
 defmodule Follower do
   def start(s) do
-    Monitor.debug(s, 4, "becomes follower with log length #{Log.getLogSize(s[:log])}")
+    Monitor.debug(s, 4, "becomes follower with log length #{Log.get_log_size(s[:log])}")
     s = State.role(s, :FOLLOWER)
     s = State.voted_for(s, nil)
     s = State.votes(s, 0)
     timer = Process.send_after(self(), {:timeout}, s.config.election_timeout + DAC.random(s.config.election_timeout))
+    Process.send_after(self(), {:crash_and_restart}, 3000)
     next(s, timer)
   end
 
@@ -14,7 +15,7 @@ defmodule Follower do
 
       {:crash_timeout} ->
 
-        Monitor.debug(s, 4, "follower crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
+        Monitor.debug(s, 4, "follower crashed and will NOT restart with log length #{Log.get_log_size(s[:log])}")
         Process.sleep(30_000)
 
       {:crash_and_restart} ->
@@ -45,7 +46,7 @@ defmodule Follower do
               leaderCommit > s[:last_applied] ->
 
                 s = State.commit_index(s, leaderCommit)
-                commitEntries(s)
+                commit_entries(s)
 
               true -> s
             end
@@ -62,30 +63,30 @@ defmodule Follower do
 
           !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
             # Monitor.debug(s, 2, "follower rcved entry #{inspect(entries)} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
-            # Monitor.debug(s, 2, "before deleting log length is #{Log.getLogSize(s[:log])})"
+            # Monitor.debug(s, 2, "before deleting log length is #{Log.get_log_size(s[:log])})"
 
             # The max also handle the case where the log is shorter.
-            s = State.log(s, Log.deleteNEntryFromLast(s[:log], max(Log.getLogSize(s[:log]) - prevLogIndex + 1, 0)))
-            # Monitor.debug(s, 2, "after deleting log length is #{Log.getLogSize(s[:log])})"
+            s = State.log(s, Log.delete_n_entries_from_last(s[:log], max(Log.get_log_size(s[:log]) - prevLogIndex + 1, 0)))
+            # Monitor.debug(s, 2, "after deleting log length is #{Log.get_log_size(s[:log])})"
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, nil})
             next(s, resetTimer(timer, s.config.election_timeout))
 
           true ->
             # Remove all entries after the prevIndex but not including the prevIndex
-            s = State.log(s, Log.deleteNEntryFromLast(s[:log], Log.getLogSize(s[:log]) - prevLogIndex))
+            s = State.log(s, Log.delete_n_entries_from_last(s[:log], Log.get_log_size(s[:log]) - prevLogIndex))
             s = State.log(
               s, Enum.reduce(entries, s[:log],
-                             fn entry, log -> Log.appendNewEntry(log, entry, prevLogIndex + 1, entry[:term]) end))
+                             fn entry, log -> Log.append_new_entry(log, entry, prevLogIndex + 1, entry[:term]) end))
             # Monitor.debug(s, 2, "Log updated log length #{length(s[:log])} cur term: #{s[:curr_term]}")
 
             s = State.commit_index(s, if leaderCommit > s[:commit_index]
-                                      do min(leaderCommit, Log.getLogSize(s[:log]))
+                                      do min(leaderCommit, Log.get_log_size(s[:log]))
                                       else s[:commit_index] end)
 
-            s = commitEntries(s)
+            s = commit_entries(s)
             send(Enum.at(s[:servers], leaderId - 1),
-                 {:appendEntryResponse, s[:curr_term], true, self(), Log.getPrevLogIndex(s[:log])})
-            Monitor.debug(s, "Updated log length #{Log.getLogSize(s[:log])}," <>
+                 {:appendEntryResponse, s[:curr_term], true, self(), Log.get_prev_log_index(s[:log])})
+            Monitor.debug(s, "Updated log length #{Log.get_log_size(s[:log])}," <>
               "last applied: #{s[:last_applied]} #{inspect(s[:log][s[:last_applied]])} commit index: #{leaderCommit}")
             next(s, resetTimer(timer, s.config.election_timeout))
 
@@ -98,8 +99,8 @@ defmodule Follower do
           term > s[:curr_term] -> State.curr_term(State.voted_for(s, nil), term)
           true -> s
         end
-        up_to_date = lastLogTerm > Log.getPrevLogTerm(s[:log]) or
-                    (lastLogTerm == Log.getPrevLogTerm(s[:log]) and lastLogIndex >= Log.getPrevLogIndex(s[:log]))
+        up_to_date = lastLogTerm > Log.get_prev_log_term(s[:log]) or
+                    (lastLogTerm == Log.get_prev_log_term(s[:log]) and lastLogIndex >= Log.get_prev_log_index(s[:log]))
         cond do
           term > s[:curr_term] and up_to_date ->
             s = State.voted_for(s, candidateId)
@@ -145,16 +146,16 @@ defmodule Follower do
     (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm)
   end
 
-  defp commitEntries(s) do
+  defp commit_entries(s) do
     if s[:commit_index] > s[:last_applied] do
       num_to_execute = s[:commit_index] - s[:last_applied]
-      Monitor.debug(s, "committing some log: #{inspect(Log.getEntriesBetween(s[:log], s[:last_applied] + 1, s[:commit_index]))}")
+      Monitor.debug(s, "committing some log: #{inspect(Log.get_entries_between(s[:log], s[:last_applied] + 1, s[:commit_index]))}")
       for i <- 1..num_to_execute do
         send s[:databaseP], {:EXECUTE, s[:log][s[:last_applied] + i][:cmd]}
       end
       s = State.last_applied(s, s[:commit_index])
       Monitor.debug(s, "committed some log: " <>
-      "log length #{Log.getLogSize(s[:log])}, " <>
+      "log length #{Log.get_log_size(s[:log])}, " <>
       "last applied == commitIndex: #{s[:last_applied]}")
       s
     else
