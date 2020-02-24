@@ -1,0 +1,59 @@
+mix compile
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 4 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 1 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 2 in term 0 converts to candidate from follower in term 0 (+1)
+server 2 in term 0 becomes candidate with log length 0
+server 2 in term 1 I am the leader for term 1 with log length 0
+time = 2000      db updates done = [{1, 344}, {2, 344}, {3, 344}, {4, 344}, {5, 344}]
+time = 2000 client requests seen = [{2, 345}]
+time = 2000           total seen = 345 max lag = 1
+
+time = 4000      db updates done = [{1, 835}, {2, 835}, {3, 835}, {4, 835}, {5, 835}]
+time = 4000 client requests seen = [{2, 835}]
+time = 4000           total seen = 835 max lag = 0
+
+server 2 in term 1 leader crashed and will NOT restart with log length 913
+server 1 in term 1 converts to candidate from follower in term 1 (+1)
+server 1 in term 1 becomes candidate with log length 913
+server 1 in term 2 I am the leader for term 2 with log length 913
+time = 6000      db updates done = [{1, 1203}, {2, 913}, {3, 1203}, {4, 1203}, {5, 1203}]
+time = 6000 client requests seen = [{1, 290}, {2, 913}]
+time = 6000           total seen = 1203 max lag = 290
+
+time = 8000      db updates done = [{1, 1696}, {2, 913}, {3, 1696}, {4, 1696}, {5, 1696}]
+time = 8000 client requests seen = [{1, 783}, {2, 913}]
+time = 8000           total seen = 1696 max lag = 783
+
+server 1 in term 2 leader crashed and will NOT restart with log length 1825
+server 3 in term 2 converts to candidate from follower in term 2 (+1)
+server 3 in term 2 becomes candidate with log length 1825
+server 3 in term 3 I am the leader for term 3 with log length 1825
+Exiting client3_32_ivoryzhu@127.0.0.1
+Exiting client1_32_ivoryzhu@127.0.0.1
+Exiting client4_32_ivoryzhu@127.0.0.1
+Exiting server4_32_ivoryzhu@127.0.0.1
+Exiting client5_32_ivoryzhu@127.0.0.1
+Exiting server3_32_ivoryzhu@127.0.0.1
+Exiting server1_32_ivoryzhu@127.0.0.1
+Exiting server2_32_ivoryzhu@127.0.0.1
+Exiting client2_32_ivoryzhu@127.0.0.1
+Exiting server5_32_ivoryzhu@127.0.0.1
+Exiting raft_32_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 1825}, {2, 913}, {3, 1984}, {4, 1984}, {5, 1984}]
+time = 10000 client requests seen = [{1, 912}, {2, 913}, {3, 159}]
+time = 10000           total seen = 1984 max lag = 1071
+

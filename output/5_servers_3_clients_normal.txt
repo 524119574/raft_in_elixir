@@ -1,0 +1,54 @@
+mix compile
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 1 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 3 in term 0 converts to candidate from follower in term 0 (+1)
+server 3 in term 0 becomes candidate with log length 0
+server 3 in term 1 I am the leader for term 1 with log length 0
+time = 2000      db updates done = [{1, 345}, {2, 345}, {3, 345}, {4, 345}, {5, 345}]
+time = 2000 client requests seen = [{3, 345}]
+time = 2000           total seen = 345 max lag = 0
+
+time = 4000      db updates done = [{1, 838}, {2, 838}, {3, 838}, {4, 838}, {5, 838}]
+time = 4000 client requests seen = [{3, 838}]
+time = 4000           total seen = 838 max lag = 0
+
+time = 6000      db updates done = [{1, 1325}, {2, 1325}, {3, 1325}, {4, 1325}, {5, 1325}]
+time = 6000 client requests seen = [{3, 1325}]
+time = 6000           total seen = 1325 max lag = 0
+
+time = 8000      db updates done = [{1, 1814}, {2, 1814}, {3, 1814}, {4, 1814}, {5, 1814}]
+time = 8000 client requests seen = [{3, 1814}]
+time = 8000           total seen = 1814 max lag = 0
+
+Exiting server3_30_ivoryzhu@127.0.0.1
+Exiting server1_30_ivoryzhu@127.0.0.1
+Exiting client5_30_ivoryzhu@127.0.0.1
+Exiting client4_30_ivoryzhu@127.0.0.1
+Exiting server5_30_ivoryzhu@127.0.0.1
+Exiting server4_30_ivoryzhu@127.0.0.1
+Exiting client3_30_ivoryzhu@127.0.0.1
+Exiting client2_30_ivoryzhu@127.0.0.1
+Exiting client1_30_ivoryzhu@127.0.0.1
+Exiting server2_30_ivoryzhu@127.0.0.1
+Exiting raft_30_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 2306}, {2, 2306}, {3, 2306}, {4, 2306}, {5, 2306}]
+time = 10000 client requests seen = [{3, 2306}]
+time = 10000           total seen = 2306 max lag = 0
+
+server 2 in term 1 converts to candidate from follower in term 1 (+1)
+server 2 in term 1 becomes candidate with log length 2378
+server 2 in term 2 becomes candidate with log length 2378

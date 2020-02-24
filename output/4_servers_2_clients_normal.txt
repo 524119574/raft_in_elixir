@@ -1,0 +1,50 @@
+mix compile
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 1 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 4 in term 0 converts to candidate from follower in term 0 (+1)
+server 4 in term 0 becomes candidate with log length 0
+server 4 in term 1 I am the leader for term 1 with log length 0
+time = 2000      db updates done = [{1, 236}, {2, 236}, {3, 236}, {4, 236}]
+time = 2000 client requests seen = [{4, 236}]
+time = 2000           total seen = 236 max lag = 0
+
+time = 4000      db updates done = [{1, 568}, {2, 568}, {3, 568}, {4, 568}]
+time = 4000 client requests seen = [{4, 568}]
+time = 4000           total seen = 568 max lag = 0
+
+time = 6000      db updates done = [{1, 902}, {2, 902}, {3, 902}, {4, 902}]
+time = 6000 client requests seen = [{4, 902}]
+time = 6000           total seen = 902 max lag = 0
+
+time = 8000      db updates done = [{1, 1230}, {2, 1230}, {3, 1230}, {4, 1230}]
+time = 8000 client requests seen = [{4, 1230}]
+time = 8000           total seen = 1230 max lag = 0
+
+Exiting client3_46_ivoryzhu@127.0.0.1
+Exiting client2_46_ivoryzhu@127.0.0.1
+Exiting client4_46_ivoryzhu@127.0.0.1
+Exiting server2_46_ivoryzhu@127.0.0.1
+Exiting client1_46_ivoryzhu@127.0.0.1
+Exiting client5_46_ivoryzhu@127.0.0.1
+Exiting server3_46_ivoryzhu@127.0.0.1
+Exiting server5_46_ivoryzhu@127.0.0.1
+Exiting server1_46_ivoryzhu@127.0.0.1
+Exiting server4_46_ivoryzhu@127.0.0.1
+Exiting raft_46_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 1563}, {2, 1563}, {3, 1563}, {4, 1563}]
+time = 10000 client requests seen = [{4, 1563}]
+time = 10000           total seen = 1563 max lag = 0
+

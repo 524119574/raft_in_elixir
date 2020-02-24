@@ -1,0 +1,66 @@
+mix compile
+Compiling 1 file (.ex)
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 1 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 1 in term 0 converts to candidate from follower in term 0 (+1)
+server 1 in term 0 becomes candidate with log length 0
+server 1 in term 1 I am the leader for term 1 with log length 0
+time = 2000      db updates done = [{1, 348}, {2, 348}, {3, 348}, {4, 348}, {5, 348}]
+time = 2000 client requests seen = [{1, 348}]
+time = 2000           total seen = 348 max lag = 0
+
+time = 4000      db updates done = [{1, 834}, {2, 834}, {3, 834}, {4, 834}, {5, 834}]
+time = 4000 client requests seen = [{1, 834}]
+time = 4000           total seen = 834 max lag = 0
+
+server 1 in term 1 leader crashed and will sleep for 800 ms
+server 2 in term 1 converts to candidate from follower in term 1 (+1)
+server 2 in term 1 becomes candidate with log length 924
+server 2 in term 2 I am the leader for term 2 with log length 924
+server 1 in term 1 leader finished sleeping and restarted with log length 924
+server 1 in term 1 converts to follower from leader in term 1 with log length 927
+server 1 in term 2 becomes follower with log length 927
+time = 6000      db updates done = [{1, 1186}, {2, 1186}, {3, 1186}, {4, 1186}, {5, 1186}]
+time = 6000 client requests seen = [{1, 927}, {2, 263}]
+time = 6000           total seen = 1190 max lag = 4
+
+time = 8000      db updates done = [{1, 1672}, {2, 1672}, {3, 1672}, {4, 1672}, {5, 1672}]
+time = 8000 client requests seen = [{1, 927}, {2, 748}]
+time = 8000           total seen = 1675 max lag = 3
+
+server 2 in term 2 leader crashed and will sleep for 800 ms
+server 4 in term 2 converts to candidate from follower in term 2 (+1)
+server 4 in term 2 becomes candidate with log length 1814
+server 4 in term 3 I am the leader for term 3 with log length 1814
+Exiting client3_20_ivoryzhu@127.0.0.1
+Exiting client5_20_ivoryzhu@127.0.0.1
+Exiting client2_20_ivoryzhu@127.0.0.1
+Exiting server1_20_ivoryzhu@127.0.0.1
+server 2 in term 2 leader finished sleeping and restarted with log length 1814
+server 2 in term 2 converts to follower from leader in term 2 with log length 1817
+server 2 in term 3 becomes follower with log length 1817
+Exiting server4_20_ivoryzhu@127.0.0.1
+Exiting client4_20_ivoryzhu@127.0.0.1
+Exiting server3_20_ivoryzhu@127.0.0.1
+Exiting server5_20_ivoryzhu@127.0.0.1
+Exiting client1_20_ivoryzhu@127.0.0.1
+Exiting server2_20_ivoryzhu@127.0.0.1
+Exiting raft_20_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 2036}, {2, 2036}, {3, 2036}, {4, 2036}, {5, 2034}]
+time = 10000 client requests seen = [{1, 927}, {2, 893}, {4, 223}]
+time = 10000           total seen = 2043 max lag = 9
+

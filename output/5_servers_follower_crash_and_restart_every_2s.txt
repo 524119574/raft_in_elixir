@@ -1,0 +1,57 @@
+mix compile
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 2 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 1 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 5 in term 0 converts to candidate from follower in term 0 (+1)
+server 5 in term 0 becomes candidate with log length 0
+server 5 in term 1 I am the leader for term 1 with log length 0
+server 2 in term 1 follower crashed and will sleep for 1000 ms
+time = 2000      db updates done = [{1, 336}, {2, 105}, {3, 336}, {4, 336}, {5, 336}]
+time = 2000 client requests seen = [{5, 336}]
+time = 2000           total seen = 336 max lag = 231
+
+server 2 in term 1 follower finished sleeping and restarted
+server 3 in term 1 follower crashed and will sleep for 1000 ms
+time = 4000      db updates done = [{1, 826}, {2, 826}, {3, 586}, {4, 826}, {5, 826}]
+time = 4000 client requests seen = [{5, 826}]
+time = 4000           total seen = 826 max lag = 240
+
+server 3 in term 1 follower finished sleeping and restarted
+server 4 in term 1 follower crashed and will sleep for 1000 ms
+time = 6000      db updates done = [{1, 1314}, {2, 1314}, {3, 1314}, {4, 1075}, {5, 1314}]
+time = 6000 client requests seen = [{5, 1317}]
+time = 6000           total seen = 1317 max lag = 242
+
+server 4 in term 1 follower finished sleeping and restarted
+time = 8000      db updates done = [{1, 1802}, {2, 1802}, {3, 1802}, {4, 1802}, {5, 1802}]
+time = 8000 client requests seen = [{5, 1802}]
+time = 8000           total seen = 1802 max lag = 0
+
+Exiting client3_03_ivoryzhu@127.0.0.1
+Exiting client2_03_ivoryzhu@127.0.0.1
+Exiting client1_03_ivoryzhu@127.0.0.1
+Exiting client4_03_ivoryzhu@127.0.0.1
+Exiting server1_03_ivoryzhu@127.0.0.1
+Exiting server5_03_ivoryzhu@127.0.0.1
+Exiting server4_03_ivoryzhu@127.0.0.1
+Exiting server3_03_ivoryzhu@127.0.0.1
+Exiting client5_03_ivoryzhu@127.0.0.1
+Exiting server2_03_ivoryzhu@127.0.0.1
+Exiting raft_03_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 2295}, {2, 2296}, {3, 2295}, {4, 2295}, {5, 2297}]
+time = 10000 client requests seen = [{5, 2297}]
+time = 10000           total seen = 2297 max lag = 2
+

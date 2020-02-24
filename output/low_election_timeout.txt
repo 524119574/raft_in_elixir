@@ -1,0 +1,84 @@
+mix compile
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 1 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 1 in term 0 converts to candidate from follower in term 0 (+1)
+server 1 in term 0 becomes candidate with log length 0
+server 5 in term 0 converts to candidate from follower in term 0 (+1)
+server 5 in term 0 becomes candidate with log length 0
+server 1 in term 1 I am the leader for term 1 with log length 0
+server 5 in term 1 converts to follower from candidate in term 1 bc found leader 1 with log length 0
+server 5 in term 1 becomes follower with log length 0
+server 3 in term 1 converts to candidate from follower in term 1 (+1)
+server 3 in term 1 becomes candidate with log length 0
+server 1 in term 2 converts to follower from leader with log length 0
+server 1 in term 2 becomes follower with log length 0
+server 2 in term 1 converts to candidate from follower in term 1 (+1)
+server 2 in term 1 becomes candidate with log length 0
+server 2 in term 2 I am the leader for term 2 with log length 0
+server 3 in term 2 converts to follower from candidate in term 2 bc found leader 2 with log length 0
+server 3 in term 2 becomes follower with log length 0
+server 5 in term 2 converts to candidate from follower in term 2 (+1)
+server 5 in term 2 becomes candidate with log length 0
+server 2 in term 3 converts to follower from leader with log length 0
+server 2 in term 3 becomes follower with log length 0
+server 5 in term 3 I am the leader for term 3 with log length 0
+server 4 in term 3 converts to candidate from follower in term 3 (+1)
+server 4 in term 3 becomes candidate with log length 0
+server 5 in term 4 converts to follower from leader with log length 0
+server 5 in term 4 becomes follower with log length 0
+server 4 in term 4 I am the leader for term 4 with log length 0
+time = 2000      db updates done = [{1, 335}, {2, 335}, {3, 335}, {4, 335}, {5, 335}]
+time = 2000 client requests seen = [{4, 335}]
+time = 2000           total seen = 335 max lag = 0
+
+time = 4000      db updates done = [{1, 825}, {2, 825}, {3, 825}, {4, 825}, {5, 825}]
+time = 4000 client requests seen = [{4, 825}]
+time = 4000           total seen = 825 max lag = 0
+
+time = 6000      db updates done = [{1, 1310}, {2, 1310}, {3, 1310}, {4, 1310}, {5, 1310}]
+time = 6000 client requests seen = [{4, 1310}]
+time = 6000           total seen = 1310 max lag = 0
+
+time = 8000      db updates done = [{1, 1795}, {2, 1795}, {3, 1795}, {4, 1795}, {5, 1795}]
+time = 8000 client requests seen = [{4, 1796}]
+time = 8000           total seen = 1796 max lag = 1
+
+Exiting server4_21_ivoryzhu@127.0.0.1
+Exiting server5_21_ivoryzhu@127.0.0.1
+Exiting client3_21_ivoryzhu@127.0.0.1
+Exiting client2_21_ivoryzhu@127.0.0.1
+Exiting client1_21_ivoryzhu@127.0.0.1
+Exiting client5_21_ivoryzhu@127.0.0.1
+Exiting server1_21_ivoryzhu@127.0.0.1
+Exiting server3_21_ivoryzhu@127.0.0.1
+Exiting server2_21_ivoryzhu@127.0.0.1
+Exiting client4_21_ivoryzhu@127.0.0.1
+Exiting raft_21_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 2286}, {2, 2286}, {3, 2286}, {4, 2286}, {5, 2286}]
+time = 10000 client requests seen = [{4, 2287}]
+time = 10000           total seen = 2287 max lag = 1
+
+server 2 in term 4 converts to candidate from follower in term 4 (+1)
+server 2 in term 4 becomes candidate with log length 2339
+server 2 in term 5 I am the leader for term 5 with log length 2339
+server 1 in term 5 converts to candidate from follower in term 5 (+1)
+server 1 in term 5 becomes candidate with log length 2340
+server 2 in term 6 converts to follower from leader with log length 2339
+server 2 in term 6 becomes follower with log length 2339
+server 1 in term 6 becomes candidate with log length 2340
+server 1 in term 7 becomes candidate with log length 2340
+server 1 in term 8 becomes candidate with log length 2340

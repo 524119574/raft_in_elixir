@@ -1,0 +1,72 @@
+mix compile
+Compiling 2 files (.ex)
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 1 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 3 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 1 in term 0 converts to candidate from follower in term 0 (+1)
+server 1 in term 0 becomes candidate with log length 0
+server 1 in term 1 I am the leader for term 1 with log length 0
+server 1 in term 1 leader crashed and will sleep for 800 ms
+server 5 in term 1 converts to candidate from follower in term 1 (+1)
+server 5 in term 1 becomes candidate with log length 103
+server 5 in term 2 I am the leader for term 2 with log length 103
+server 1 in term 1 leader finished sleeping and restarted with log length 103
+server 1 in term 1 converts to follower from leader in term 1 with log length 106
+server 1 in term 2 becomes follower with log length 106
+time = 2000      db updates done = [{1, 220}, {2, 220}, {3, 220}, {4, 220}, {5, 220}]
+time = 2000 client requests seen = [{1, 106}, {5, 117}]
+time = 2000           total seen = 223 max lag = 3
+
+server 2 in term 2 follower crashed and will sleep for 1000 ms
+time = 4000      db updates done = [{1, 713}, {2, 471}, {3, 712}, {4, 713}, {5, 713}]
+time = 4000 client requests seen = [{1, 106}, {5, 610}]
+time = 4000           total seen = 716 max lag = 245
+
+server 2 in term 2 follower finished sleeping and restarted
+server 3 in term 2 follower crashed and will sleep for 1000 ms
+time = 6000      db updates done = [{1, 1200}, {2, 1201}, {3, 958}, {4, 1201}, {5, 1201}]
+time = 6000 client requests seen = [{1, 106}, {5, 1098}]
+time = 6000           total seen = 1204 max lag = 246
+
+server 3 in term 2 follower finished sleeping and restarted
+server 4 in term 2 follower crashed and will sleep for 1000 ms
+time = 8000      db updates done = [{1, 1683}, {2, 1683}, {3, 1683}, {4, 1448}, {5, 1684}]
+time = 8000 client requests seen = [{1, 106}, {5, 1581}]
+time = 8000           total seen = 1687 max lag = 239
+
+server 4 in term 2 follower finished sleeping and restarted
+server 5 in term 2 leader crashed and will sleep for 800 ms
+Exiting client4_55_ivoryzhu@127.0.0.1
+server 3 in term 2 converts to candidate from follower in term 2 (+1)
+server 3 in term 2 becomes candidate with log length 1871
+server 3 in term 3 I am the leader for term 3 with log length 1871
+Exiting client5_55_ivoryzhu@127.0.0.1
+Exiting server2_55_ivoryzhu@127.0.0.1
+Exiting server5_55_ivoryzhu@127.0.0.1
+Exiting client1_55_ivoryzhu@127.0.0.1
+Exiting server1_55_ivoryzhu@127.0.0.1
+Exiting server4_55_ivoryzhu@127.0.0.1
+Exiting client2_55_ivoryzhu@127.0.0.1
+Exiting server3_55_ivoryzhu@127.0.0.1
+Exiting client3_55_ivoryzhu@127.0.0.1
+server 5 in term 2 leader finished sleeping and restarted with log length 1871
+server 5 in term 2 converts to follower from leader in term 2 with log length 1874
+server 5 in term 3 becomes follower with log length 1874
+Exiting raft_55_ivoryzhu@127.0.0.1
+time = 10000      db updates done = [{1, 1986}, {2, 1986}, {3, 1986}, {4, 1986}, {5, 1986}]
+time = 10000 client requests seen = [{1, 106}, {3, 115}, {5, 1771}]
+time = 10000           total seen = 1992 max lag = 6
+

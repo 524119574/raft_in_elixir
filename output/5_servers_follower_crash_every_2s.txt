@@ -1,0 +1,38 @@
+mix compile
+Compiling 2 files (.ex)
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+Raft at 146.169.179.254
+server 3 in term 0 becomes follower with log length 0
+server 1 in term 0 becomes follower with log length 0
+server 4 in term 0 becomes follower with log length 0
+server 2 in term 0 becomes follower with log length 0
+server 5 in term 0 becomes follower with log length 0
+server 1 in term 0 converts to candidate from follower in term 0 (+1)
+server 1 in term 0 becomes candidate with log length 0
+server 1 in term 1 I am the leader for term 1 with log length 0
+server 2 in term 1 follower crashed and will NOT restart with log length 105
+
+
+server 3 in term 1 follower crashed and will NOT restart with log length 590
+server 4 in term 1 follower crashed and will NOT restart with log length 1079
+time = 6000      db updates done = [{1, 1079}, {2, 105}, {3, 590}, {4, 1079}, {5, 1079}]
+time = 6000 client requests seen = [{1, 1082}]
+time = 6000           total seen = 1082 max lag = 977
+
+time = 8000      db updates done = [{1, 1079}, {2, 105}, {3, 590}, {4, 1079}, {5, 1079}]
+time = 8000 client requests seen = [{1, 1085}]
+time = 8000           total seen = 1085 max lag = 980
+
+time = 10000      db updates done = [{1, 1079}, {2, 105}, {3, 590}, {4, 1079}, {5, 1079}]
+time = 10000 client requests seen = [{1, 1092}]
+time = 10000           total seen = 1092 max lag = 987
+
