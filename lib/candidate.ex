@@ -35,13 +35,13 @@ defmodule Candidate do
           next(s)
         end
 
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
+      {:append_entry, term, leader_id, prev_log_index, prev_log_term, entries, leader_commit} ->
 
-        # Monitor.debug(s, "is candidate and append entry received from server #{leaderId}")
+        # Monitor.debug(s, "is candidate and append entry received from server #{leader_id}")
         if term >= s[:curr_term] do
-          Monitor.debug(s, 4, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leaderId} with log length #{Log.get_log_size(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from candidate in term #{s[:curr_term]} bc found leader #{leader_id} with log length #{Log.get_log_size(s[:log])}")
           s = State.curr_term(s, term)
-          send Enum.at(s[:servers], leaderId - 1), {:appendEntryFailedResponse, s[:curr_term], false, self()}
+          send Enum.at(s[:servers], leader_id - 1), {:append_entry_response, s[:curr_term], false, self()}
           Follower.start(s)
         else
           next(s)
