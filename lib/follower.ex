@@ -24,7 +24,7 @@ defmodule Follower do
         Monitor.debug(s, 4, "follower crashed and will sleep for 1000 ms")
         Process.sleep(1000)
         Monitor.debug(s, 4, "follower finished sleeping and restarted")
-        next(s, resetTimer(timer, s.config.election_timeout))
+        next(s, reset_timer(timer, s.config.election_timeout))
 
       {:appendEntry, term, leaderId,
        prevLogIndex, prevLogTerm,
@@ -55,13 +55,13 @@ defmodule Follower do
           term < s[:curr_term] ->
 
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, self(), nil})
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
 
           entries == nil -> # heartbeat
 
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
 
-          !isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) ->
+          !is_entry_match(s, prevLogIndex, prevLogTerm) ->
             # Monitor.debug(s, 2, "follower rcved entry #{inspect(entries)} with prevLogIndex #{prevLogIndex} term #{prevLogTerm}")
             # Monitor.debug(s, 2, "before deleting log length is #{Log.get_log_size(s[:log])})"
 
@@ -69,7 +69,7 @@ defmodule Follower do
             s = State.log(s, Log.delete_n_entries_from_last(s[:log], max(Log.get_log_size(s[:log]) - prevLogIndex + 1, 0)))
             # Monitor.debug(s, 2, "after deleting log length is #{Log.get_log_size(s[:log])})"
             send(Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, nil})
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
 
           true ->
             # Remove all entries after the prevIndex but not including the prevIndex
@@ -88,7 +88,7 @@ defmodule Follower do
                  {:appendEntryResponse, s[:curr_term], true, self(), Log.get_prev_log_index(s[:log])})
             Monitor.debug(s, "Updated log length #{Log.get_log_size(s[:log])}," <>
               "last applied: #{s[:last_applied]} #{inspect(s[:log][s[:last_applied]])} commit index: #{leaderCommit}")
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
 
         end
 
@@ -106,15 +106,15 @@ defmodule Follower do
             s = State.voted_for(s, candidateId)
             # Monitor.debug(s, 1, "term bigger: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
           term == s[:curr_term] and up_to_date and (s[:voted_for] == nil or s[:voted_for] == candidateId) ->
             s = State.voted_for(s, candidateId)
             # Monitor.debug(s, 1, "term equal: received request vote and voted for #{candidateId} in term #{term}!")
             send votePid, {:requestVoteResponse, s[:curr_term], true}
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
           true ->
             send votePid, {:requestVoteResponse, s[:curr_term], false}
-            next(s, resetTimer(timer, s.config.election_timeout))
+            next(s, reset_timer(timer, s.config.election_timeout))
         end
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
@@ -125,7 +125,7 @@ defmodule Follower do
         end
 
         Monitor.debug(s, 2, "follower received client request but do not know leader")
-        next(s, resetTimer(timer, s.config.election_timeout))
+        next(s, reset_timer(timer, s.config.election_timeout))
 
       {:timeout} ->
 
@@ -136,14 +136,14 @@ defmodule Follower do
     end
   end
 
-  defp resetTimer(timer, timeout) do
+  defp reset_timer(timer, timeout) do
     Process.cancel_timer(timer)
     Process.send_after(self(), {:timeout}, timeout + DAC.random(timeout))
   end
 
-  defp isPreviousEntryMatch(s, prevLogIndex, prevLogTerm) do
+  defp is_entry_match(s, prev_log_index, prev_log_term) do
     # Monitor.debug(s, 2, "prev entry look at #{inspect(Enum.at(s[:log], prevLogIndex - 1))}")
-    (prevLogIndex == 0 or s[:log][prevLogIndex][:term] == prevLogTerm)
+    (prev_log_index == 0 or s[:log][prev_log_index][:term] == prev_log_term)
   end
 
   defp commit_entries(s) do

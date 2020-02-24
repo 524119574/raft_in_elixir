@@ -149,18 +149,18 @@ defmodule Leader do
   defp update_commit_index(s, from) do
     match_indexes = s[:match_index] |> Enum.map(fn {_, v} -> v end)
     # Get all the possible commit index and its corresponding count.
-    newCommitIndex_match_list =
-      for newCommitIndex <- s[:commit_index]..s[:match_index][from] do
-        {newCommitIndex, Enum.count(match_indexes, fn i -> i >= newCommitIndex end)}
+    new_commit_index_match_list =
+      for new_commit_index <- s[:commit_index]..s[:match_index][from] do
+        {new_commit_index, Enum.count(match_indexes, fn i -> i >= new_commit_index end)}
       end
     # Get all the possible commit index that satisfies the condition.
-    candidateCommitIndexes = Enum.filter(
-      newCommitIndex_match_list,
+    candidate_commit_indexes = Enum.filter(
+      new_commit_index_match_list,
       # since the count doesn't include itself so we minus 1 here.
-      fn {i, c} -> (i > s[:commit_index] and c >= s[:majority] - 1 and s[:log][i][:term] == s[:curr_term]) end)
-    # Monitor.debug s, "new commit index list #{inspect(candidateCommitIndexes)}"
-    State.commit_index(s, if (length(candidateCommitIndexes) > 0)
-                          do elem(Enum.at(candidateCommitIndexes, -1), 0)
+      fn {i, c} -> (i > s[:commit_index] and c >= s[:majority] - 1 and
+                    s[:log][i][:term] == s[:curr_term]) end)
+    State.commit_index(s, if (length(candidate_commit_indexes) > 0)
+                          do elem(Enum.at(candidate_commit_indexes, -1), 0)
                           else s[:commit_index] end)
   end
 
