@@ -92,7 +92,7 @@ defmodule Follower do
 
         end
 
-      {:request_vote, vote_pid, term, candidateId, last_log_index, lastLogTerm} ->
+      {:request_vote, vote_pid, term, candidate_id, last_log_index, lastLogTerm} ->
         s =
         cond do
           # Update current term if the term received is larger than self.
@@ -103,13 +103,13 @@ defmodule Follower do
                     (lastLogTerm == Log.get_prev_log_term(s[:log]) and last_log_index >= Log.get_prev_log_index(s[:log]))
         cond do
           term > s[:curr_term] and up_to_date ->
-            s = State.voted_for(s, candidateId)
-            # Monitor.debug(s, 1, "term bigger: received request vote and voted for #{candidateId} in term #{term}!")
+            s = State.voted_for(s, candidate_id)
+            # Monitor.debug(s, 1, "term bigger: received request vote and voted for #{candidate_id} in term #{term}!")
             send vote_pid, {:request_vote_response, s[:curr_term], true}
             next(s, reset_timer(timer, s.config.election_timeout))
-          term == s[:curr_term] and up_to_date and (s[:voted_for] == nil or s[:voted_for] == candidateId) ->
-            s = State.voted_for(s, candidateId)
-            # Monitor.debug(s, 1, "term equal: received request vote and voted for #{candidateId} in term #{term}!")
+          term == s[:curr_term] and up_to_date and (s[:voted_for] == nil or s[:voted_for] == candidate_id) ->
+            s = State.voted_for(s, candidate_id)
+            # Monitor.debug(s, 1, "term equal: received request vote and voted for #{candidate_id} in term #{term}!")
             send vote_pid, {:request_vote_response, s[:curr_term], true}
             next(s, reset_timer(timer, s.config.election_timeout))
           true ->
