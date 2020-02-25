@@ -1,7 +1,7 @@
 defmodule Leader do
 
   def start(s) do
-    Monitor.debug(s, 4, "I am the leader for term #{s[:curr_term]} with log length #{Log.getLogSize(s[:log])}")
+    Monitor.debug(s, 4, "I am the leader for term #{s[:curr_term]} with log length #{Log.get_log_size(s[:log])}")
     s = State.role(s, :LEADER)
     s = State.leader_id(s, s[:id])
 
@@ -13,14 +13,14 @@ defmodule Leader do
 
     # First heartbeat to establish self as leader
     for server <- s[:servers], server != self() do
-      send(server, {:appendEntry, s[:curr_term], s[:id],
-                    Log.getPrevLogIndex(s[:log]), Log.getPrevLogTerm(s[:log]), nil, s[:commit_index]})
+      send(server, {:append_entry, s[:curr_term], s[:id],
+                    Log.get_prev_log_index(s[:log]), Log.get_prev_log_term(s[:log]), nil, s[:commit_index]})
     end
 
-    Process.send_after(self(), {:resendHeartBeat}, 50)
+    Process.send_after(self(), {:resend_heart_beat}, 50)
 
     # leader crash every 3000 ms
-    Process.send_after(self(), {:crash_and_restart}, 3000)
+    # Process.send_after(self(), {:crash_and_restart}, 3000)
 
     next(s)
   end
@@ -30,29 +30,29 @@ defmodule Leader do
     receive do
       {:crash_timeout} ->
 
-        Monitor.debug(s, 4, "leader crashed and will NOT restart with log length #{Log.getLogSize(s[:log])}")
+        Monitor.debug(s, 4, "leader crashed and will NOT restart with log length #{Log.get_log_size(s[:log])}")
         Process.sleep(30_000)
 
       {:crash_and_restart} ->
 
         Monitor.debug(s, 4, "leader crashed and will sleep for 800 ms")
         Process.sleep(800)
-        Monitor.debug(s, 4, "leader finished sleeping and restarted with log length #{Log.getLogSize(s[:log])}")
+        Monitor.debug(s, 4, "leader finished sleeping and restarted with log length #{Log.get_log_size(s[:log])}")
         next(s)
 
-      {:resendHeartBeat} ->
+      {:resend_heart_beat} ->
 
         for {follower, next_index} <- s[:next_index] do
-          entries = if Log.getPrevLogIndex(s[:log]) >= next_index
-                    do Log.getEntriesStartingFrom(s[:log], next_index)
+          entries = if Log.get_prev_log_index(s[:log]) >= next_index
+                    do Log.get_entries_starting_from(s[:log], next_index)
                     else nil end
-          send(follower, {:appendEntry, s[:curr_term], s[:id],
-                          Log.getPrevLogIndex(s[:log]),   # prevLogIndex
-                          Log.getPrevLogTerm(s[:log]),   # prevLogTerm
+          send(follower, {:append_entry, s[:curr_term], s[:id],
+                          Log.get_prev_log_index(s[:log]),   # prev_log_index
+                          Log.get_prev_log_term(s[:log]),   # prev_log_term
                           entries, # entries
                           s[:commit_index]})
         end
-        Process.send_after(self(), {:resendHeartBeat}, 50)
+        Process.send_after(self(), {:resend_heart_beat}, 50)
         next(s)
 
       {:CLIENT_REQUEST, %{clientP: client, uid: uid, cmd: cmd}} ->
@@ -62,12 +62,12 @@ defmodule Leader do
         prevLog = s[:log]
         newLogEntry = %{term: s[:curr_term], uid: uid, cmd: cmd, clientP: client}
         # Add the client request to its own log.
-        s = State.log(s, Log.appendNewEntry(prevLog,newLogEntry))
+        s = State.log(s, Log.append_new_entry(prevLog,newLogEntry))
 
-        # Monitor.debug(s, 2, "Leader log updated log length #{Log.getLogSize(s[:log])}")
-        appendEntryMsg = {:appendEntry, s[:curr_term], s[:id],
-                          Log.getPrevLogIndex(prevLog),
-                          Log.getPrevLogTerm(prevLog),
+        # Monitor.debug(s, 2, "Leader log updated log length #{Log.get_log_size(s[:log])}")
+        appendEntryMsg = {:append_entry, s[:curr_term], s[:id],
+                          Log.get_prev_log_index(prevLog),
+                          Log.get_prev_log_term(prevLog),
                           [newLogEntry],
                           s[:commit_index]}
 
@@ -77,17 +77,17 @@ defmodule Leader do
         end
         next(s)
 
-      {:appendEntryResponse, term, true, from, matchIndex} ->
+      {:append_entry_response, term, true, from, match_index} ->
 
         if term > s[:curr_term] do
-          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.getLogSize(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.get_log_size(s[:log])}")
           s = State.curr_term(s, term)
           Follower.start(s)
         end
 
         # update match_index and next_index
-        s = State.next_index(s, from, max(matchIndex + 1, s[:next_index][from]))
-        s = State.match_index(s, from, max(matchIndex, s[:match_index][from]))
+        s = State.next_index(s, from, max(match_index + 1, s[:next_index][from]))
+        s = State.match_index(s, from, max(match_index, s[:match_index][from]))
 
         s = update_commit_index(s, from)
 
@@ -95,16 +95,16 @@ defmodule Leader do
 
         # Notify all followers that the commit index has been updated.
         for server <- s[:servers], server != self(), do:
-          send(server, {:appendEntry, s[:curr_term], s[:id],
-                        Log.getPrevLogIndex(s[:log]), Log.getPrevLogTerm(s[:log]),
+          send(server, {:append_entry, s[:curr_term], s[:id],
+                        Log.get_prev_log_index(s[:log]), Log.get_prev_log_term(s[:log]),
                         nil, s[:commit_index]})
 
         next(s)
 
-      {:appendEntryResponse, term, false, from } ->
+      {:append_entry_response, term, false, from } ->
         # leader is out of date
         if term > s[:curr_term] do
-          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.getLogSize(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.get_log_size(s[:log])}")
           s = State.curr_term(s, term)
           Follower.start(s)
         end
@@ -113,7 +113,7 @@ defmodule Leader do
         # decrement next_index by 1
         new_next_index = s[:next_index][from] - 1
         s = State.next_index(s, from, new_next_index)
-        new_append_entry_msg = {:appendEntry, s[:curr_term], s[:id],
+        new_append_entry_msg = {:append_entry, s[:curr_term], s[:id],
                                 new_next_index - 1,                  # preLogIndex
                                 s[:log][new_next_index - 1][:term],  # preLogTerm
                                 [s[:log][new_next_index]],
@@ -122,24 +122,24 @@ defmodule Leader do
         next(s)
 
       # step down when discovered server with highter term
-      {:requestVote, votePid, term, candidateId, lastLogIndex, lastLogTerm} ->
-        up_to_date = lastLogTerm > Log.getPrevLogTerm(s[:log]) or
-                    (lastLogTerm == Log.getPrevLogTerm(s[:log]) and lastLogIndex >= Log.getPrevLogIndex(s[:log]))
+      {:request_vote, vote_pid, term, candidate_id, last_log_index, last_log_term} ->
+        up_to_date = last_log_term > Log.get_prev_log_term(s[:log]) or
+                    (last_log_term == Log.get_prev_log_term(s[:log]) and last_log_index >= Log.get_prev_log_index(s[:log]))
 
         if term > s[:curr_term] and up_to_date do
           s = State.curr_term(s, term)
-          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.getLogSize(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from leader with log length #{Log.get_log_size(s[:log])}")
           Follower.start(s)
         end
-        send votePid, {:requestVoteResponse, s[:curr_term], false}
+        send vote_pid, {:request_vote_response, s[:curr_term], false}
         next(s)
 
       # step down when discovered server with highter term
-      {:appendEntry, term, leaderId, prevLogIndex, prevLogTerm, entries, leaderCommit} ->
+      {:append_entry, term, leader_id, prev_log_index, prev_log_term, entries, leader_commit} ->
         if term > s[:curr_term] do
-          Monitor.debug(s, 4, "converts to follower from leader in term #{s[:curr_term]} with log length #{Log.getLogSize(s[:log])}")
+          Monitor.debug(s, 4, "converts to follower from leader in term #{s[:curr_term]} with log length #{Log.get_log_size(s[:log])}")
           s = State.curr_term(s, term)
-          send Enum.at(s[:servers], leaderId - 1), {:appendEntryResponse, s[:curr_term], false, self(), s[:last_applied]}
+          send Enum.at(s[:servers], leader_id - 1), {:append_entry_response, s[:curr_term], false, self(), s[:last_applied]}
           Follower.start(s)
         end
         next(s)
@@ -149,25 +149,25 @@ defmodule Leader do
   defp update_commit_index(s, from) do
     match_indexes = s[:match_index] |> Enum.map(fn {_, v} -> v end)
     # Get all the possible commit index and its corresponding count.
-    newCommitIndex_match_list =
-      for newCommitIndex <- s[:commit_index]..s[:match_index][from] do
-        {newCommitIndex, Enum.count(match_indexes, fn i -> i >= newCommitIndex end)}
+    new_commit_index_match_list =
+      for new_commit_index <- s[:commit_index]..s[:match_index][from] do
+        {new_commit_index, Enum.count(match_indexes, fn i -> i >= new_commit_index end)}
       end
     # Get all the possible commit index that satisfies the condition.
-    candidateCommitIndexes = Enum.filter(
-      newCommitIndex_match_list,
+    candidate_commit_indexes = Enum.filter(
+      new_commit_index_match_list,
       # since the count doesn't include itself so we minus 1 here.
-      fn {i, c} -> (i > s[:commit_index] and c >= s[:majority] - 1 and s[:log][i][:term] == s[:curr_term]) end)
-    # Monitor.debug s, "new commit index list #{inspect(candidateCommitIndexes)}"
-    State.commit_index(s, if (length(candidateCommitIndexes) > 0)
-                          do elem(Enum.at(candidateCommitIndexes, -1), 0)
+      fn {i, c} -> (i > s[:commit_index] and c >= s[:majority] - 1 and
+                    s[:log][i][:term] == s[:curr_term]) end)
+    State.commit_index(s, if (length(candidate_commit_indexes) > 0)
+                          do elem(Enum.at(candidate_commit_indexes, -1), 0)
                           else s[:commit_index] end)
   end
 
   defp commit_entries_and_notify_clients(s) do
     if s[:commit_index] > s[:last_applied] do
       num_to_execute = s[:commit_index] - s[:last_applied]
-      Monitor.debug(s, "committing: #{inspect(Log.getEntriesBetween(s[:log], s[:last_applied] + 1, s[:commit_index]))}")
+      Monitor.debug(s, "committing: #{inspect(Log.get_entries_between(s[:log], s[:last_applied] + 1, s[:commit_index]))}")
       for i <- 1..num_to_execute do
         log_index = s[:last_applied] + i
         send s[:databaseP], {:EXECUTE, s[:log][log_index][:cmd]}
